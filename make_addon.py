@@ -15,7 +15,9 @@ def create_addon(browser):
         "main.css",
         "popup.css",
         "popup.html",
-        "popup.js"
+        "popup.js",
+        "onboarding.html",
+        "onboarding.js"
     ]
     
     with open("manifest.json", "r") as f:
@@ -28,8 +30,11 @@ def create_addon(browser):
         
         manifest["browser_specific_settings"] = {
             "gecko": {
-                "id": "anchor@benjchan",
+                "id": "anchor@athulkrishna2015",
                 "strict_min_version": "109.0"
+            },
+            "gecko_android": {
+                "strict_min_version": "113.0"
             }
         }
     

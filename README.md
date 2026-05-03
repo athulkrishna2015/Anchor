@@ -36,6 +36,12 @@ python3 make_addon.py
 This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
+### v1.3.1
+- **Scroll-Up Fix:** When Reel Mode limit is reached, you can now still scroll back up to re-watch previous videos. Only downward scrolling is blocked.
+- **Firefox for Android Support:** The `.xpi` build now includes the `gecko_android` manifest declaration, making the extension compatible with Firefox Mobile (v113+).
+- **Correct Extension ID:** Updated the Firefox addon ID from the original author's handle to `anchor@athulkrishna2015`.
+- **Credits Updated:** Both the popup and README now correctly list the original creators, the maintainer (athulkrishna2015), and a link back to the original `benjchan/Anchor` fork.
+
 ### v1.3.0
 - **Operating Modes (Allowlist vs Blocklist):** Added a global toggle. You can now configure Anchor to run everywhere (Blocklist) or set it to run *only* on sites you explicitly specify (Allowlist).
 - **First-Run Onboarding:** Built a brand new interactive setup page that automatically launches when you install the extension, asking you to choose your preferred operating mode.
@@ -63,3 +69,9 @@ This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. T
 * [Miki Chiu](https://www.mikichiu.com)
 * [Tayo Kopfer](https://tayo.co.za)
 * [Twomuch Studio](https://twomuch.studio)
+
+**Maintained & extended by:**
+* [athulkrishna2015](https://github.com/athulkrishna2015)
+
+**Forked from the original by:**
+* [benjchan/Anchor](https://github.com/benjchan/Anchor)
