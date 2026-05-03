@@ -16,7 +16,7 @@ To create the extension zip files for Chrome and Firefox, you can run the includ
 ```bash
 python3 make_addon.py
 ```
-This will generate `anchor_chrome.zip` and `anchor_firefox.zip`. The script automatically handles the differences in `manifest.json` requirements between browsers.
+This will generate `anchor_chrome.zip` and `anchor_firefox.xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Project created by:
 * [Brendan Browne-Adams](https://www.brendanbrownedesigns.com/)

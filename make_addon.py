@@ -3,7 +3,8 @@ import zipfile
 import json
 
 def create_addon(browser):
-    zip_filename = f"anchor_{browser}.zip"
+    extension = "xpi" if browser == "firefox" else "zip"
+    zip_filename = f"anchor_{browser}.{extension}"
     files_to_include = [
         "background.js",
         "content.js",
