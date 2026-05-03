@@ -1,9 +1,10 @@
 let currentHostname = "";
 
-chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'cpuSetting'], function(result) {
+chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'reelLimit', 'cpuSetting'], function(result) {
     let status = result.status === undefined ? 1 : result.status;
     let exclusions = result.exclusions || [];
     let customDepth = result.customDepth || 10;
+    let reelLimit = result.reelLimit || 10;
     let cpuSetting = result.cpuSetting || 'high';
 
     if(status == 1){
@@ -15,6 +16,7 @@ chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'cpuSetting'], 
     }
 
     $("#setting--depth").val(customDepth);
+    $("#setting--reel-limit").val(reelLimit);
     $("#setting--cpu").val(cpuSetting);
 
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -76,6 +78,17 @@ $("#setting--depth").change(function() {
     let val = parseInt($(this).val());
     if (val > 0) {
         chrome.storage.local.set({customDepth: val}, function() {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) chrome.tabs.reload(tabs[0].id);
+            });
+        });
+    }
+});
+
+$("#setting--reel-limit").change(function() {
+    let val = parseInt($(this).val());
+    if (val > 0) {
+        chrome.storage.local.set({reelLimit: val}, function() {
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                 if (tabs[0]) chrome.tabs.reload(tabs[0].id);
             });

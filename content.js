@@ -1,7 +1,18 @@
 var depthBottomMeters = 10; //Depth in meters
 var cpuSetting = 'high';
+var reelLimit = 10;
+var isReelMode = false;
+var reelsWatched = 0;
+var lastUrl = window.location.href;
 var depthBottomPixel;
 var depthStart;
+
+function checkReelMode() {
+    var url = window.location.href;
+    return url.includes('youtube.com/shorts') || 
+           url.includes('tiktok.com') || 
+           url.includes('instagram.com/reels');
+}
 
 var init = function(){
 
@@ -17,7 +28,19 @@ var init = function(){
 
 	loadCreatures();
 
-	$(window).scroll(function(e){
+    isReelMode = checkReelMode();
+
+    if (isReelMode) {
+        setInterval(function() {
+            if (window.location.href !== lastUrl) {
+                lastUrl = window.location.href;
+                reelsWatched++;
+                updateReelsUI();
+            }
+        }, 500);
+        updateReelsUI();
+    } else {
+	    $(window).scroll(function(e){
 
 		var s = $("body, html").scrollTop();
 		var docHeight = document.body.scrollHeight;
@@ -59,9 +82,42 @@ var init = function(){
 		// Using 96DPI
 		var m = Math.round((s / 96) * 2.54) / 100;
 		$(".marker span").text(m + 'm');
-	});
+	    });
+    }
 
 };
+
+function updateReelsUI() {
+    var progress = reelsWatched / reelLimit;
+    var easedProgress = progress * progress * 0.9;
+    
+    if (progress <= 0) {
+        $(".sea").css({"opacity": 0});
+    } else if (progress < 1) {
+        $(".sea").css({"opacity": easedProgress});
+    } else {
+        $(".sea").css({"opacity": 0.95});
+        if($(".rock").length == 0){
+            $(".anchor").append('<svg class="rock" width="1333px" height="291px" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,937.037871 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
+            $(".rock").css({"top": (window.innerHeight - 200) + "px"});
+            
+            // Block scrolling
+            $("body").append('<div id="anchor-blocker" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999999999;background:transparent;"></div>');
+            document.getElementById('anchor-blocker').addEventListener('wheel', function(e){e.preventDefault(); e.stopPropagation();}, {passive:false});
+            document.getElementById('anchor-blocker').addEventListener('touchmove', function(e){e.preventDefault(); e.stopPropagation();}, {passive:false});
+            document.getElementById('anchor-blocker').addEventListener('keydown', function(e){
+                if(["ArrowDown","ArrowUp","Space","PageDown","PageUp"].indexOf(e.code) > -1) {
+                    e.preventDefault();
+                }
+            }, {passive:false});
+        }
+    }
+    
+    var pos = Math.min(progress, 1) * (window.innerHeight - 60);
+    $(".marker").css({"transform": "translate(0, " + pos + "px)"});
+    $(".marker").css({"display": "block"});
+    $(".marker span").text("Reel " + reelsWatched);
+}
 
 function meterToPixel(m){
 	// Using 96DPI
@@ -104,6 +160,7 @@ chrome.runtime.sendMessage({type: "status"}, function(response) {
     if(response && response.status == 1 && !response.isExcluded) {
         if (response.customDepth) depthBottomMeters = response.customDepth;
         if (response.cpuSetting) cpuSetting = response.cpuSetting;
+        if (response.reelLimit) reelLimit = response.reelLimit;
         init();
     }
     return;

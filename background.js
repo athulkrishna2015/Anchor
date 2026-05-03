@@ -1,7 +1,7 @@
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (request.type === "status") {
-      chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'cpuSetting'], function(result) {
+      chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'cpuSetting', 'reelLimit'], function(result) {
         let currentStatus = result.status;
         if (currentStatus === undefined) currentStatus = 1; // default to 1
         
@@ -19,7 +19,8 @@ chrome.runtime.onMessage.addListener(
             status: currentStatus,
             isExcluded: isExcluded,
             customDepth: result.customDepth || 10,
-            cpuSetting: result.cpuSetting || 'high'
+            cpuSetting: result.cpuSetting || 'high',
+            reelLimit: result.reelLimit || 10
         });
       });
       return true;

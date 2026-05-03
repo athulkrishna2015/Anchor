@@ -16,7 +16,17 @@ To create the extension zip files for Chrome and Firefox, you can run the includ
 ```bash
 python3 make_addon.py
 ```
-This will generate `anchor_chrome.zip` and `anchor_firefox.xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
+This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
+
+## Changelog
+### v1.1.0
+- **Reel Mode added!** Anchor now supports infinitely scrolling video feeds like YouTube Shorts, TikTok, and Instagram Reels. The standard depth meter transforms into a "Reel Tracker" and blocks you when you've reached your configured limit.
+- **Advanced Settings Panel:** Added a new configuration menu inside the popup.
+- **Domain Exclusions:** Added the ability to completely disable Anchor on specific sites.
+- **Custom Depth & Reel Limits:** Easily tweak exactly how far you want to be able to scroll/swipe before hitting rock bottom.
+- **CPU Saver (Animation Density):** Experiencing lag? You can now lower the number of animated fish, or turn them off entirely, straight from the settings menu.
+- **Natural Darkening CSS:** Re-engineered the sea darkening effect to use a deep `linear-gradient` with an eased opacity curve and a `multiply` blend mode for a much more immersive sinking experience.
+- **Manifest V3 Migration:** Brought the extension up to modern standards and created a cross-browser Python build script.
 
 ## Project created by:
 * [Brendan Browne-Adams](https://www.brendanbrownedesigns.com/)
