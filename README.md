@@ -39,6 +39,8 @@ This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. T
 ### v1.2.0
 - **Domain & Subdomain Exclusions:** You can now choose whether to disable Anchor on a specific subdomain (e.g. `music.youtube.com`) or across an entire domain structure (`youtube.com`).
 - **Improved Pacing (Virtual Scale):** Updated the physics engine to use a virtual scale (1m = 1000px). This makes reaching a 10m depth take about 15-20 posts instead of an exhausting 60+ posts, improving the pacing and user satisfaction.
+- **Configurable Start Buffers:** Added UI settings to change the initial "safe zone" buffer length for both standard scrolling and Reel mode, ensuring the extension doesn't distract you during genuine use.
+- **Popup UI Enhancements:** Re-engineered the settings window to be fully scrollable, comfortably supporting any future additions without breaking Chrome's window limits.
 - **Robust Reel Mode Blocker:** Rewrote the scroll-blocking logic to hook into the absolute highest level of the browser window, permanently fixing the issue where TikTok or YouTube Shorts could bypass the blocker.
 
 ### v1.1.0

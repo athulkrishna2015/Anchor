@@ -1,6 +1,8 @@
 var depthBottomMeters = 10; //Depth in meters
 var cpuSetting = 'high';
 var reelLimit = 10;
+var scrollBufferMeters = 2;
+var reelBuffer = 2;
 var isReelMode = false;
 var reelsWatched = 0;
 var lastUrl = window.location.href;
@@ -17,7 +19,7 @@ function checkReelMode() {
 var init = function(){
 
 	depthBottomPixel = meterToPixel(depthBottomMeters);
-	depthStart = 0;
+	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
 
 	// Create elements
 	$("body").append('<div class="anchor"></div>');
@@ -88,7 +90,12 @@ var init = function(){
 };
 
 function updateReelsUI() {
-    var progress = reelsWatched / reelLimit;
+    var progress = 0;
+    if (reelLimit > reelBuffer) {
+        progress = (reelsWatched - reelBuffer) / (reelLimit - reelBuffer);
+    } else {
+        progress = reelsWatched / reelLimit;
+    }
     var easedProgress = progress * 0.95;
     
     if (progress <= 0) {
@@ -168,6 +175,8 @@ chrome.runtime.sendMessage({type: "status"}, function(response) {
         if (response.customDepth) depthBottomMeters = response.customDepth;
         if (response.cpuSetting) cpuSetting = response.cpuSetting;
         if (response.reelLimit) reelLimit = response.reelLimit;
+        if (response.scrollBuffer !== undefined) scrollBufferMeters = response.scrollBuffer;
+        if (response.reelBuffer !== undefined) reelBuffer = response.reelBuffer;
         init();
     }
     return;

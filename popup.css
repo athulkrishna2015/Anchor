@@ -103,14 +103,16 @@ input[type=checkbox], button {
   box-sizing: border-box;
 }
 
-.info--open{ height: 600px; }
-.settings--open{ height: 350px; }
+.info--open{ height: 500px; }
+.settings--open{ height: 450px; }
 
 .button--clicked{ background: lightgrey !important; }
 
 #anchor--instruct, #anchor--settings{
   width: 380px;
-  height: auto;
+  height: calc(100% - 88px);
+  overflow-y: auto;
+  box-sizing: border-box;
   position: absolute;
   top: 88px;
   margin: 0 2px;

@@ -1,11 +1,13 @@
 let currentHostname = "";
 
-chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'reelLimit', 'cpuSetting'], function(result) {
+chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'reelLimit', 'cpuSetting', 'scrollBuffer', 'reelBuffer'], function(result) {
     let status = result.status === undefined ? 1 : result.status;
     let exclusions = result.exclusions || [];
     let customDepth = result.customDepth || 10;
     let reelLimit = result.reelLimit || 10;
     let cpuSetting = result.cpuSetting || 'high';
+    let scrollBuffer = result.scrollBuffer !== undefined ? result.scrollBuffer : 2;
+    let reelBuffer = result.reelBuffer !== undefined ? result.reelBuffer : 2;
 
     if(status == 1){
         $("#anchor--toggle input").prop("checked", true);
@@ -16,7 +18,9 @@ chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'reelLimit', 'c
     }
 
     $("#setting--depth").val(customDepth);
+    $("#setting--scroll-buffer").val(scrollBuffer);
     $("#setting--reel-limit").val(reelLimit);
+    $("#setting--reel-buffer").val(reelBuffer);
     $("#setting--cpu").val(cpuSetting);
 
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -108,6 +112,28 @@ $("#setting--reel-limit").change(function() {
     let val = parseInt($(this).val());
     if (val > 0) {
         chrome.storage.local.set({reelLimit: val}, function() {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) chrome.tabs.reload(tabs[0].id);
+            });
+        });
+    }
+});
+
+$("#setting--scroll-buffer").change(function() {
+    let val = parseInt($(this).val());
+    if (val >= 0) {
+        chrome.storage.local.set({scrollBuffer: val}, function() {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) chrome.tabs.reload(tabs[0].id);
+            });
+        });
+    }
+});
+
+$("#setting--reel-buffer").change(function() {
+    let val = parseInt($(this).val());
+    if (val >= 0) {
+        chrome.storage.local.set({reelBuffer: val}, function() {
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                 if (tabs[0]) chrome.tabs.reload(tabs[0].id);
             });
