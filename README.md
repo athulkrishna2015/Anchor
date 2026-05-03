@@ -36,6 +36,9 @@ python3 make_addon.py
 This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
+### v1.3.3
+- **Mode-Switching Bug Fix:** Fixed a bug where navigating from YouTube Shorts/TikTok back to a normal page left the extension stuck in Reel Mode — the screen would never darken on scroll. Now works in both directions: Scroll → Reel and Reel → Scroll transitions are fully dynamic.
+
 ### v1.3.2
 - **AMO Validation Fix:** Updated the Firefox build script to declare `data_collection_permissions: ["none"]` as required by Mozilla's new Add-on Store policy for all new extensions. The addon now passes AMO validation cleanly.
 

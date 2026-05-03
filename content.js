@@ -32,60 +32,69 @@ var init = function(){
 
     isReelMode = checkReelMode();
 
-    if (isReelMode) {
-        setInterval(function() {
-            if (window.location.href !== lastUrl) {
-                lastUrl = window.location.href;
-                reelsWatched++;
-                updateReelsUI();
+    function attachScrollListener() {
+        $(window).off('scroll').scroll(function(e){
+            var s = $("body, html").scrollTop();
+            var docHeight = document.body.scrollHeight;
+
+            if($(".anchor").outerHeight() != docHeight){
+                $(".anchor").css({"height": docHeight + "px"});
             }
-        }, 500);
+            var progress = (s - depthStart) / (depthBottomPixel - depthStart);
+            var easedProgress = progress * 0.95;
+            if(progress <= 0){
+                $(".sea").css({"opacity": 0});
+            } else if(progress <= 1) {
+                $(".sea").css({"opacity": easedProgress});
+            } else {
+                e.preventDefault();
+                $("body, html").scrollTop(depthBottomPixel);
+                $(".sea").css({"opacity": 0.95});
+            }
+
+            var markerProgress = (s / depthBottomPixel);
+            if(markerProgress < 0) markerProgress = 0;
+            if(markerProgress > 0.9 && $(".rock").length == 0){
+                $(".anchor").append('<svg class="rock" width="1333px" height="291px" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,937.037871 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
+                $(".rock").css({"top": (depthBottomPixel + window.innerHeight) + "px"});
+            }
+            if(markerProgress > 1) markerProgress = 1;
+            var pos = markerProgress * (window.innerHeight - 60);
+            $(".marker").css({"transform": "translate(0, " + pos + "px)"});
+            var m = Math.round(s / 100) / 10;
+            $(".marker span").text(m + 'm');
+        });
+    }
+
+    if (isReelMode) {
         updateReelsUI();
     } else {
-	    $(window).scroll(function(e){
-
-		var s = $("body, html").scrollTop();
-		var docHeight = document.body.scrollHeight;
-
-		if($(".anchor").outerHeight() != docHeight){
-			$(".anchor").css({"height": docHeight + "px"});
-		}
-		var progress = (s - depthStart) / (depthBottomPixel - depthStart);
-		var easedProgress = progress * 0.95;
-		if(progress <= 0){
-			$(".sea").css({"opacity": 0});
-		} else if(progress <= 1) {
-			// set sea opacity
-			$(".sea").css({"opacity": easedProgress});
-		} else {
-			// Prevent further scrolling
-			e.preventDefault();
-			$("body, html").scrollTop(depthBottomPixel);
-			$(".sea").css({"opacity": 0.95});
-		}
-
-
-		// set marker position
-		var markerProgress = (s / depthBottomPixel);
-		if(markerProgress < 0){
-			markerProgress = 0;
-		}
-		if(markerProgress > 0.9 && $(".rock").length == 0){
-			$(".anchor").append('<svg class="rock" width="1333px" height="291px" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,937.037871 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
-			$(".rock").css({"top": (depthBottomPixel + window.innerHeight) + "px"});
-		}
-		if(markerProgress > 1){
-			markerProgress = 1;
-		}
-		var pos = markerProgress * (window.innerHeight - 60);
-		$(".marker").css({"transform": "translate(0, " + pos + "px)"});
-
-		
-		// Using virtual scale (1m = 1000px)
-		var m = Math.round(s / 100) / 10;
-		$(".marker span").text(m + 'm');
-	    });
+        attachScrollListener();
     }
+
+    // Continuously poll for URL changes to handle SPA navigation (e.g. YouTube Shorts → YouTube)
+    setInterval(function() {
+        if (window.location.href !== lastUrl) {
+            var wasReelMode = isReelMode;
+            lastUrl = window.location.href;
+            isReelMode = checkReelMode();
+
+            if (isReelMode && wasReelMode) {
+                // Still in reel mode — count the new reel
+                reelsWatched++;
+                updateReelsUI();
+            } else if (isReelMode && !wasReelMode) {
+                // Switched INTO reel mode — detach scroll listener, init reels UI
+                $(window).off('scroll');
+                updateReelsUI();
+            } else if (!isReelMode && wasReelMode) {
+                // Switched OUT of reel mode — attach scroll listener, reset sea
+                $(".sea").css({"opacity": 0});
+                $(".marker span").text("0m");
+                attachScrollListener();
+            }
+        }
+    }, 500);
 
 };
 
