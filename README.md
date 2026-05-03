@@ -29,11 +29,13 @@ Because Firefox requires slight modifications to the `manifest.json` (specifical
 4. Select the generated `anchor_firefox_[date].xpi` file.
 
 ### Building the Add-ons
-To create the extension zip files for Chrome and Firefox, you can run the included python script:
+To create the extension zip files for Chrome and Firefox, you can run the included python script. You can optionally provide a version number to override the one in `manifest.json`:
 ```bash
-python3 make_addon.py
+python3 make_addon.py [version]
 ```
-This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
+Example: `python3 make_addon.py 1.3.3`
+
+This will generate `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
 ### v1.3.3
