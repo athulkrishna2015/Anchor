@@ -1,7 +1,13 @@
 import os
+import sys
 import zipfile
 import json
 import datetime
+
+# Usage:
+#   python3 make_addon.py            → uses version from manifest.json (no change)
+#   python3 make_addon.py 1.4.0     → overrides version in the built zip/xpi only
+VERSION_OVERRIDE = sys.argv[1] if len(sys.argv) > 1 else None
 
 def create_addon(browser):
     extension = "xpi" if browser == "firefox" else "zip"
@@ -22,6 +28,9 @@ def create_addon(browser):
     
     with open("manifest.json", "r") as f:
         manifest = json.load(f)
+
+    if VERSION_OVERRIDE:
+        manifest["version"] = VERSION_OVERRIDE
         
     if browser == "firefox":
         if "background" in manifest and "service_worker" in manifest["background"]:
