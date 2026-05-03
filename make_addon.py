@@ -12,7 +12,12 @@ VERSION_OVERRIDE = sys.argv[1] if len(sys.argv) > 1 else None
 def create_addon(browser):
     extension = "xpi" if browser == "firefox" else "zip"
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_filename = f"anchor_{browser}_{timestamp}.{extension}"
+    
+    with open("manifest.json", "r") as f:
+        manifest = json.load(f)
+
+    version = VERSION_OVERRIDE if VERSION_OVERRIDE else manifest.get("version", "1.0.0")
+    zip_filename = f"anchor_{browser}_v{version}_{timestamp}.{extension}"
     files_to_include = [
         "background.js",
         "content.js",
@@ -26,9 +31,6 @@ def create_addon(browser):
         "onboarding.js"
     ]
     
-    with open("manifest.json", "r") as f:
-        manifest = json.load(f)
-
     if VERSION_OVERRIDE:
         manifest["version"] = VERSION_OVERRIDE
         
