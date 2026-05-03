@@ -11,6 +11,23 @@ We're thinking this could be easily adapted and expanded (by you!) into a whole 
 ## Manifest V3 & Browser Support
 This extension has been updated to support **Manifest V3**. It works on both Google Chrome and Mozilla Firefox.
 
+### Local Development & Testing
+
+#### For Google Chrome
+The source code in this repository is natively formatted for **Google Chrome**. You do not need to build the `.zip` file for local development.
+To install the extension for testing:
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode** in the top right corner.
+3. Click **Load unpacked** in the top left and select this repository's folder.
+4. When you make code changes, just click the reload icon on the extension's card to instantly apply them.
+
+#### For Mozilla Firefox
+Because Firefox requires slight modifications to the `manifest.json` (specifically changing `service_worker` to `scripts`), you **must** use the build script to test on Firefox.
+1. Run `python3 make_addon.py`
+2. Open Firefox and go to `about:addons`
+3. Click the gear icon ⚙️ and select **Install Add-on From File...**
+4. Select the generated `anchor_firefox_[date].xpi` file.
+
 ### Building the Add-ons
 To create the extension zip files for Chrome and Firefox, you can run the included python script:
 ```bash

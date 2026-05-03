@@ -17,7 +17,7 @@ function checkReelMode() {
 var init = function(){
 
 	depthBottomPixel = meterToPixel(depthBottomMeters);
-	depthStart = depthBottomPixel - meterToPixel(depthBottomMeters * 0.4);
+	depthStart = 0;
 
 	// Create elements
 	$("body").append('<div class="anchor"></div>');
@@ -49,7 +49,7 @@ var init = function(){
 			$(".anchor").css({"height": docHeight + "px"});
 		}
 		var progress = (s - depthStart) / (depthBottomPixel - depthStart);
-		var easedProgress = progress * progress * 0.9;
+		var easedProgress = progress * 0.95;
 		if(progress <= 0){
 			$(".sea").css({"opacity": 0});
 		} else if(progress <= 1) {
@@ -79,8 +79,8 @@ var init = function(){
 		$(".marker").css({"transform": "translate(0, " + pos + "px)"});
 
 		
-		// Using 96DPI
-		var m = Math.round((s / 96) * 2.54) / 100;
+		// Using virtual scale (1m = 1000px)
+		var m = Math.round(s / 100) / 10;
 		$(".marker span").text(m + 'm');
 	    });
     }
@@ -89,7 +89,7 @@ var init = function(){
 
 function updateReelsUI() {
     var progress = reelsWatched / reelLimit;
-    var easedProgress = progress * progress * 0.9;
+    var easedProgress = progress * 0.95;
     
     if (progress <= 0) {
         $(".sea").css({"opacity": 0});
@@ -120,9 +120,8 @@ function updateReelsUI() {
 }
 
 function meterToPixel(m){
-	// Using 96DPI
-	var p = ((m * 100) / 2.54) * 96;
-	return p;
+	// Using virtual scale: 1 meter = 1000 pixels
+	return m * 1000;
 }
 
 function loadCreatures(){
