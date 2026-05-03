@@ -1,4 +1,5 @@
 var depthBottomMeters = 10; //Depth in meters
+var cpuSetting = 'high';
 var depthBottomPixel;
 var depthStart;
 
@@ -25,16 +26,17 @@ var init = function(){
 			$(".anchor").css({"height": docHeight + "px"});
 		}
 		var progress = (s - depthStart) / (depthBottomPixel - depthStart);
+		var easedProgress = progress * progress * 0.9;
 		if(progress <= 0){
 			$(".sea").css({"opacity": 0});
 		} else if(progress <= 1) {
 			// set sea opacity
-			$(".sea").css({"opacity": progress});
+			$(".sea").css({"opacity": easedProgress});
 		} else {
 			// Prevent further scrolling
 			e.preventDefault();
 			$("body, html").scrollTop(depthBottomPixel);
-			$(".sea").css({"opacity": 1});
+			$(".sea").css({"opacity": 0.95});
 		}
 
 
@@ -72,6 +74,8 @@ function loadCreatures(){
 	// Paste sea creatures
 
 	var fishCount = 30;
+	if (cpuSetting === 'low') fishCount = 5;
+	if (cpuSetting === 'none') fishCount = 0;
 
 	for(var i = 1; i <= fishCount; i++){
 		var pos = depthStart + (window.innerHeight * 0.7) + ((1 - Math.pow(i / fishCount, 2)) * (depthBottomPixel - depthStart));
@@ -97,6 +101,10 @@ function loadCreatures(){
 }
 
 chrome.runtime.sendMessage({type: "status"}, function(response) {
-    if(response && response.status == 1) init();
+    if(response && response.status == 1 && !response.isExcluded) {
+        if (response.customDepth) depthBottomMeters = response.customDepth;
+        if (response.cpuSetting) cpuSetting = response.cpuSetting;
+        init();
+    }
     return;
 });

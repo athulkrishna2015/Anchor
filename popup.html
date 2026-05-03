@@ -14,6 +14,10 @@
         <button id="info--button" type="button"></button>
         <label for="info--button"><span>info</span></label>
     </div>
+    <div id="anchor--settings-btn">
+        <button id="settings--button" type="button"></button>
+        <label for="settings--button"><span>opts</span></label>
+    </div>
     <div id="anchor--instruct">
         <p>The infinite scroll. It's dangerously easy to scroll mindlessly for hours, especially when it comes to social media.</p>
  
@@ -32,6 +36,25 @@
             <li><a href="https://twomuch.studio">Twomuch Studio</a></li>
         </ul>
 
+    </div>
+    <div id="anchor--settings">
+        <h3>Settings</h3>
+        <div class="setting-row">
+            <input type="checkbox" id="setting--exclude">
+            <label for="setting--exclude" class="inline-label">Disable on: <br><strong id="current-domain">this site</strong></label>
+        </div>
+        <div class="setting-row">
+            <label>Depth (meters):</label>
+            <input type="number" id="setting--depth" min="1" max="1000" value="10">
+        </div>
+        <div class="setting-row">
+            <label>Animation Density (CPU usage):</label>
+            <select id="setting--cpu">
+              <option value="high">High (Many Fish)</option>
+              <option value="low">Low (Few Fish)</option>
+              <option value="none">None (No Fish)</option>
+            </select>
+        </div>
     </div>
     <script src="jquery-3.2.1.js"></script>
     <script src="popup.js"></script>
