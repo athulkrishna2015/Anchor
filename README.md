@@ -6,7 +6,7 @@ So what if we playfully visualised infinite scrolling as a deep sea dive, to hel
  
 Anchor is a simple browser extension which plays on this feeling of sinking. The further down you scroll, the deeper you dive — and you can watch as your screen slowly turns a dark blue, a little fish swims across your screen, and finally, you hit a (literal) rock bottom.
  
-We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on [GitHub](https://github.com/benjchan/Anchor) for you to play with and evolve.
+We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on [GitHub](https://github.com/athulkrishna2015/Anchor) for you to play with and evolve.
 
 ## Manifest V3 & Browser Support
 This extension has been updated to support **Manifest V3**. It works on both Google Chrome and Mozilla Firefox.
@@ -36,6 +36,11 @@ python3 make_addon.py
 This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
+### v1.3.0
+- **Operating Modes (Allowlist vs Blocklist):** Added a global toggle. You can now configure Anchor to run everywhere (Blocklist) or set it to run *only* on sites you explicitly specify (Allowlist).
+- **First-Run Onboarding:** Built a brand new interactive setup page that automatically launches when you install the extension, asking you to choose your preferred operating mode.
+- **Project Links:** Re-routed all internal links and README documentation to point to the new `athulkrishna2015/Anchor` repository.
+
 ### v1.2.0
 - **Domain & Subdomain Exclusions:** You can now choose whether to disable Anchor on a specific subdomain (e.g. `music.youtube.com`) or across an entire domain structure (`youtube.com`).
 - **Improved Pacing (Virtual Scale):** Updated the physics engine to use a virtual scale (1m = 1000px). This makes reaching a 10m depth take about 15-20 posts instead of an exhausting 60+ posts, improving the pacing and user satisfaction.

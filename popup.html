@@ -25,7 +25,7 @@
  
         <p>Anchor is a simple Chrome extension which plays on this feeling of sinking. The further down you scroll, the deeper you dive &mdash; and you can watch as your screen slowly turns a dark blue, a little fish swims across your screen, and finally, you hit a (literal) rock bottom.</p>
  
-        <p>We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on <a href="https://github.com/benjchan/Anchor">GitHub</a> for you to play with and evolve.</p>
+        <p>We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on <a href="https://github.com/athulkrishna2015/Anchor">GitHub</a> for you to play with and evolve.</p>
 
         <ul>
             <li>Project created by:</li>
@@ -40,8 +40,15 @@
     <div id="anchor--settings">
         <h3>Settings</h3>
         <div class="setting-row">
+            <label>Operating Mode:</label>
+            <select id="setting--operating-mode">
+                <option value="blocklist">Blocklist (Run everywhere except...)</option>
+                <option value="allowlist">Allowlist (Disabled everywhere except...)</option>
+            </select>
+        </div>
+        <div class="setting-row">
             <input type="checkbox" id="setting--exclude">
-            <label for="setting--exclude" class="inline-label">Disable on: <br>
+            <label for="setting--exclude" class="inline-label"><span id="list-action-text">Disable on:</span> <br>
                 <select id="current-domain-select" style="margin-top: 5px; max-width: 150px;"></select>
             </label>
         </div>
