@@ -36,6 +36,9 @@ python3 make_addon.py
 This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
+### v1.3.2
+- **AMO Validation Fix:** Updated the Firefox build script to declare `data_collection_permissions: ["none"]` as required by Mozilla's new Add-on Store policy for all new extensions. The addon now passes AMO validation cleanly.
+
 ### v1.3.1
 - **Scroll-Up Fix:** When Reel Mode limit is reached, you can now still scroll back up to re-watch previous videos. Only downward scrolling is blocked.
 - **Firefox for Android Support:** The `.xpi` build now includes the `gecko_android` manifest declaration, making the extension compatible with Firefox Mobile (v113+).
