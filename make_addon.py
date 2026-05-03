@@ -1,10 +1,12 @@
 import os
 import zipfile
 import json
+import datetime
 
 def create_addon(browser):
     extension = "xpi" if browser == "firefox" else "zip"
-    zip_filename = f"anchor_{browser}.{extension}"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_filename = f"anchor_{browser}_{timestamp}.{extension}"
     files_to_include = [
         "background.js",
         "content.js",
