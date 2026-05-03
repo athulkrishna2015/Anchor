@@ -97,8 +97,6 @@ function loadCreatures(){
 }
 
 chrome.runtime.sendMessage({type: "status"}, function(response) {
-    if(response.status == 1) init();
+    if(response && response.status == 1) init();
     return;
 });
-
-

@@ -1,5 +1,11 @@
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
-  	console.log(localStorage.status);
-    if (request.type == "status") sendResponse({status: localStorage.status});
+    if (request.type === "status") {
+      chrome.storage.local.get(['status'], function(result) {
+        let currentStatus = result.status;
+        if (currentStatus === undefined) currentStatus = 1; // default to 1
+        sendResponse({status: currentStatus});
+      });
+      return true;
+    }
 });
