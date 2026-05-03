@@ -9,8 +9,8 @@ chrome.runtime.onMessage.addListener(
         if (sender.tab && sender.tab.url) {
             try {
                 let url = new URL(sender.tab.url);
-                if (result.exclusions && result.exclusions.includes(url.hostname)) {
-                    isExcluded = true;
+                if (result.exclusions) {
+                    isExcluded = result.exclusions.some(ex => url.hostname === ex || url.hostname.endsWith('.' + ex));
                 }
             } catch(e) {}
         }

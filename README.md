@@ -36,6 +36,11 @@ python3 make_addon.py
 This will generate `anchor_chrome_[date].zip` and `anchor_firefox_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
 
 ## Changelog
+### v1.2.0
+- **Domain & Subdomain Exclusions:** You can now choose whether to disable Anchor on a specific subdomain (e.g. `music.youtube.com`) or across an entire domain structure (`youtube.com`).
+- **Improved Pacing (Virtual Scale):** Updated the physics engine to use a virtual scale (1m = 1000px). This makes reaching a 10m depth take about 15-20 posts instead of an exhausting 60+ posts, improving the pacing and user satisfaction.
+- **Robust Reel Mode Blocker:** Rewrote the scroll-blocking logic to hook into the absolute highest level of the browser window, permanently fixing the issue where TikTok or YouTube Shorts could bypass the blocker.
+
 ### v1.1.0
 - **Reel Mode added!** Anchor now supports infinitely scrolling video feeds like YouTube Shorts, TikTok, and Instagram Reels. The standard depth meter transforms into a "Reel Tracker" and blocks you when you've reached your configured limit.
 - **Advanced Settings Panel:** Added a new configuration menu inside the popup.

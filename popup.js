@@ -24,12 +24,30 @@ chrome.storage.local.get(['status', 'exclusions', 'customDepth', 'reelLimit', 'c
             try {
                 let url = new URL(tabs[0].url);
                 currentHostname = url.hostname;
-                $("#current-domain").text(currentHostname);
-                if (exclusions.includes(currentHostname)) {
-                    $("#setting--exclude").prop("checked", true);
+                
+                let select = $("#current-domain-select");
+                select.empty();
+                
+                select.append(new Option(currentHostname, currentHostname));
+                
+                let parts = currentHostname.split('.');
+                if (parts.length > 2) {
+                    let baseDomain = parts.slice(-2).join('.');
+                    select.append(new Option(baseDomain, baseDomain));
                 }
+                
+                function updateCheckbox() {
+                    let selected = select.val();
+                    $("#setting--exclude").prop("checked", exclusions.includes(selected));
+                }
+                
+                select.change(updateCheckbox);
+                updateCheckbox();
+                
             } catch(e) {
-                $("#current-domain").text("invalid URL");
+                let select = $("#current-domain-select");
+                select.empty();
+                select.append(new Option("invalid URL", "invalid URL"));
             }
         }
     });
@@ -57,14 +75,15 @@ $("#anchor--toggle").mousedown(function(){
 
 $("#setting--exclude").change(function() {
     let isExcluded = $(this).is(":checked");
-    if(!currentHostname) return;
+    let targetDomain = $("#current-domain-select").val();
+    if(!targetDomain || targetDomain === "invalid URL") return;
 
     chrome.storage.local.get(['exclusions'], function(result) {
         let exclusions = result.exclusions || [];
         if (isExcluded) {
-            if (!exclusions.includes(currentHostname)) exclusions.push(currentHostname);
+            if (!exclusions.includes(targetDomain)) exclusions.push(targetDomain);
         } else {
-            exclusions = exclusions.filter(h => h !== currentHostname);
+            exclusions = exclusions.filter(h => h !== targetDomain);
         }
         chrome.storage.local.set({exclusions: exclusions}, function() {
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
