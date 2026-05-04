@@ -47,6 +47,9 @@ var init = function(){
             } else if(progress <= 1) {
                 $(".sea").css({"opacity": easedProgress});
             } else {
+                if (s > depthBottomPixel) {
+                    $(window).scrollTop(depthBottomPixel);
+                }
                 $(".sea").css({"opacity": 0.99});
             }
 
@@ -96,6 +99,7 @@ var init = function(){
     window.addEventListener('touchmove', function(e) {
         let currentY = e.touches[0].clientY;
         if (lastTouchY > currentY) stopEvent(e); // Swiping up (scrolling down)
+        lastTouchY = currentY;
     }, {passive:false, capture:true});
     
     window.addEventListener('keydown', function(e){
