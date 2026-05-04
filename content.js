@@ -81,6 +81,9 @@ var init = function(){
         }
 
         if (shouldBlock) {
+            if (!isReelMode) {
+                document.documentElement.classList.add('anchor-at-bottom');
+            }
             e.preventDefault(); 
             e.stopPropagation(); 
             e.stopImmediatePropagation(); 
@@ -88,7 +91,11 @@ var init = function(){
     };
     
     window.addEventListener('wheel', function(e) {
-        if (e.deltaY > 0) stopEvent(e);
+        if (e.deltaY > 0) {
+            stopEvent(e);
+        } else {
+            document.documentElement.classList.remove('anchor-at-bottom');
+        }
     }, {passive:false, capture:true});
     
     let lastTouchY = 0;
@@ -98,7 +105,11 @@ var init = function(){
     
     window.addEventListener('touchmove', function(e) {
         let currentY = e.touches[0].clientY;
-        if (lastTouchY > currentY) stopEvent(e); // Swiping up (scrolling down)
+        if (lastTouchY > currentY) {
+            stopEvent(e);
+        } else {
+            document.documentElement.classList.remove('anchor-at-bottom');
+        }
         lastTouchY = currentY;
     }, {passive:false, capture:true});
     
@@ -106,6 +117,8 @@ var init = function(){
         // Only block keys that scroll down
         if(["ArrowDown","Space","PageDown"].indexOf(e.code) > -1) {
             stopEvent(e);
+        } else if (["ArrowUp","PageUp","Home"].indexOf(e.code) > -1) {
+            document.documentElement.classList.remove('anchor-at-bottom');
         }
     }, {passive:false, capture:true});
 

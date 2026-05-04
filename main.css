@@ -130,6 +130,10 @@
     transform: translate(0, -50%);
 }
 
+html.anchor-at-bottom {
+    overflow: hidden !important;
+}
+
 @keyframes swim {
   from {transform: translate(120vw,0%);}
   to {transform: translate(0vw, 0%);}
