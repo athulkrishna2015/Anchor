@@ -149,10 +149,11 @@ def sign_firefox(version, version_override=None):
         subprocess.run(cmd, check=True)
         print("\nSuccessfully signed Firefox addon!")
     finally:
-        # Cleanup
-        for file in os.listdir(tmp_dir):
-            os.remove(os.path.join(tmp_dir, file))
-        os.rmdir(tmp_dir)
+        # Cleanup safely
+        if os.path.exists(tmp_dir):
+            for file in os.listdir(tmp_dir):
+                os.remove(os.path.join(tmp_dir, file))
+            os.rmdir(tmp_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build and optionally sign the Anchor extension.")
