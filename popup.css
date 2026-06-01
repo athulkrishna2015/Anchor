@@ -1,10 +1,16 @@
 body, html{
     margin: 0;
-    height: 88px;
     width: 432px;
-    transition: height 0.5s;
     font-size: 14px;
     font-family: "Helvetica", "Arial", sans-serif !important;
+}
+
+html {
+    height: auto;
+}
+
+body {
+    height: 88px;
 }
 
 #anchor--title{

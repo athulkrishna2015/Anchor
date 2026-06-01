@@ -1,3 +1,8 @@
 *.zip
 *.xpi
+.env
 __pycache__/
+.amo-upload-uuid
+firefox_build/
+.antigravitycli/
+
