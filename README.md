@@ -7,7 +7,7 @@ So what if we playfully visualised infinite scrolling as a deep sea dive, to hel
 Anchor is a simple browser extension which plays on this feeling of sinking. The further down you scroll, the deeper you dive — and you can watch as your screen slowly turns a dark blue, a little fish swims across your screen, and finally, you hit a (literal) rock bottom.
  
 We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on [GitHub](https://github.com/athulkrishna2015/Anchor) for you to play with and evolve.
-
+Install on firefox: https://addons.mozilla.org/en-US/firefox/addon/anchor-scroll-reel-blocker/
 ## Manifest V3 & Browser Support
 This extension has been updated to support **Manifest V3**. It works on both Google Chrome and Mozilla Firefox.
 
