@@ -137,10 +137,10 @@ def sign_firefox(version, version_override=None):
 
     print(f"\nSigning Firefox addon...")
     cmd = [
-        "bunx", "web-ext", "sign",
+        "npx", "web-ext", "sign",
         "--api-key", issuer,
         "--api-secret", secret,
-        "--channel", "unlisted",
+        "--channel", "listed",
         "--source-dir", tmp_dir,
         "--artifacts-dir", "./web-ext-artifacts"
     ]
