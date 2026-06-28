@@ -4,82 +4,119 @@ The infinite scroll. It's dangerously easy to scroll mindlessly for hours, espec
  
 So what if we playfully visualised infinite scrolling as a deep sea dive, to help people experience their scrolling habit more tangibly?
  
-Anchor is a simple browser extension which plays on this feeling of sinking. The further down you scroll, the deeper you dive — and you can watch as your screen slowly turns a dark blue, a little fish swims across your screen, and finally, you hit a (literal) rock bottom.
- 
-We're thinking this could be easily adapted and expanded (by you!) into a whole series of scrolling experiments. Think cave exploring, parachuting, digging to the center of the Earth... All our code is available on [GitHub](https://github.com/athulkrishna2015/Anchor) for you to play with and evolve.
+Anchor is a browser extension which plays on this feeling of sinking. The further down you scroll, the deeper you dive — and you can watch as your screen slowly turns a dark blue, a little fish swims across your screen, and finally, you hit a (literal) rock bottom.
+
+In this version, we have integrated **mindful interventions** right at the front gate, styled with clean vanilla architectures. When you open a target distracting website, Anchor pauses your access, directing your focus back to the real world before habits take over.
+
+All our code is available on [GitHub](https://github.com/athulkrishna2015/Anchor) for you to play with and evolve.
 Install on firefox: https://addons.mozilla.org/en-US/firefox/addon/anchor-scroll-reel-blocker/
-## Manifest V3 & Browser Support
-This extension has been updated to support **Manifest V3**. It works on both Google Chrome and Mozilla Firefox.
 
-### Local Development & Testing
+---
 
-#### For Google Chrome
-The source code in this repository is natively formatted for **Google Chrome**. You do not need to build the `.zip` file for local development.
-To install the extension for testing:
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** in the top right corner.
-3. Click **Load unpacked** in the top left and select this repository's folder.
-4. When you make code changes, just click the reload icon on the extension's card to instantly apply them.
+## Core Features
 
-#### For Mozilla Firefox
-Because Firefox requires slight modifications to the `manifest.json` (specifically changing `service_worker` to `scripts`), you **must** use the build script to test on Firefox.
-1. Run `python3 make_extension.py`
-2. Open Firefox and go to `about:addons`
-3. Click the gear icon ⚙️ and select **Install Add-on From File...**
-4. Select the generated `anchor_firefox_[date].xpi` file.
+### 1. Sinking Scroll & Reel Blocker
+*   **Virtual Sinking:** Watch the screen turn deep blue as you scroll past your buffer zone. A depth marker counts your meters until you hit rock bottom and scrolling blocks.
+*   **Short-Form Video Blocker (Reels, Shorts, TikTok):** Automatically detects and tracks swiping on **YouTube Shorts** (`/shorts/`), **Instagram Reels** (`/reels/` or `/reel/`), and **TikTok** (`tiktok.com`). Swiping to a new video increases your watched count and moves the depth meter down. Once you hit your configured limit, downward swiping/scrolling is fully blocked (via mouse wheel, keys, and touchscreen gestures), but you can still swipe back up to previously watched content.
+*   **Performance Profiles:** Toggle animation density (High, Low, or None) to save CPU/battery.
+
+### 2. Mindful Interventions
+Anchor intercepts your access immediately upon visiting target websites and prompts you to pause:
+*   **Breathing Exercise (Classic):** Guided inhale/exhale cycles showing custom breathing phrases, dynamic typography-based scale transitions, and your 24h attempts statistics.
+*   **Breathing Exercise (Minimal):** A quiet, clean, textless circle pulse to calm your attention.
+*   **Type Random Text / Math Puzzles:** Focus-deflecting friction tasks that force you to type verification codes or solve math equations. If a mistake is made, it instantly resets and generates a new puzzle.
+*   **Healthy Alternatives:** Reminds you to read, stretch, or walk, with a delay timer if you choose to proceed.
+*   **State Your Intention:** Forces you to checklist why you are opening the site, giving warning prompts for mindless browsing.
+
+### 3. SPA Dashboard & Domain-Specific Overrides
+A top navigation SPA dashboard (`dashboard.html`) managing everything:
+*   **Overview Stats:** Displays prevented attempts, time saved, 24h history, and annualized savings.
+*   **Dynamic Websites List:** Interactive list of blocked websites. Includes an enter-to-add search bar.
+*   **Domain Details View:** Click any site in the breakdown to view its specific attempts history and toggle **app-specific settings** (such as customizing breathing duration or adjusting/disabling re-intervention timers).
+
+### 4. Interactive Cooldown slider
+*   When bypass mode is set to "cooldown", completing an intervention opens a full-screen time selector. Slide to select exactly how long you need the site (e.g. 1-15 minutes), and the blocker will automatically lock back after that period.
+
+### 5. Hourglass Re-Intervention Loops
+*   Break infinite scroll loops with automatic re-intervention check-ins (enabled by default for all blocked sites, and customizable via per-site settings). Anchor will periodically check back in (e.g. every 10 minutes) showing an animated **hourglass SVG screen**. Choose to close the tab or undergo another mindful pause.
+
+### 6. Single-Click Popup Block/Allow Controls
+*   The extension popup menu displays the attempts count for the active website in the last 24h. It features a contextual quick-action button at the bottom: **Exclude [domain]** or **Block [domain]** dynamically depending on the current tab location and operating mode.
+
+---
+
+## Extension Architecture
+
+All browser extension files live in `chrome_build/`, which is the canonical Chrome unpacked extension folder:
+*   `chrome_build/dashboard.html` / `chrome_build/js/dashboard.js`: Top-nav SPA dashboard, details panel, and overrides manager.
+*   `chrome_build/popup.html` / `chrome_build/js/popup.js`: Compact popup displaying site-specific 24h attempts and quick-toggle blockers.
+*   `chrome_build/onboarding.html` / `chrome_build/js/onboard.js`: First-run onboarding setup page.
+*   `chrome_build/js/content.js`: Handles initial page intercepts, interventions overlay rendering, re-intervention timers, and scroll trackers.
+*   `chrome_build/js/background.js`: Manages tab closing messages, verifies schedule checks, and merges domain overrides.
+
+---
+
+## Local Development & Testing
+
+### For Google Chrome
+The source code is natively formatted for **Google Chrome**.
+1.  Open Chrome and go to `chrome://extensions/`
+2.  Enable **Developer mode** in the top right corner.
+3.  Click **Load unpacked** and select this repository's `chrome_build/` folder.
+4.  To configure targets and schedules, click the Options link in the extension details or use the popup.
+
+### For Mozilla Firefox
+Use the build script to transform and package for Firefox:
+1.  Run `python3 make_extension.py`
+2.  Open Firefox and go to `about:addons`
+3.  Click the gear icon ⚙️ and select **Install Add-on From File...**
+4.  Select the generated `anchor_firefox_[date].xpi` file.
 
 ### Building the Add-ons
-To create the extension zip files for Chrome and Firefox, you can run the included python script. You can optionally provide a version number to override the one in `manifest.json`:
+To package Chrome and Firefox versions, run:
 ```bash
 python3 make_extension.py [version]
 ```
-Example: `python3 make_extension.py 1.3.3`
+This builds `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi`.
+The script reads the Chrome extension from `chrome_build/` and refreshes `firefox_build/` with Firefox-specific manifest changes.
 
-This will generate `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi`. The script automatically handles the differences in `manifest.json` requirements between browsers.
+---
 
 ## Changelog
-### v1.3.3
-- **Mode-Switching Bug Fix:** Fixed a bug where navigating from YouTube Shorts/TikTok back to a normal page left the extension stuck in Reel Mode — the screen would never darken on scroll. Now works in both directions: Scroll → Reel and Reel → Scroll transitions are fully dynamic.
+### v1.6.0
+*   **Favicon Integration**: Shows high-resolution website favicons instead of emojis in the websites breakdown list, details header, and mindful pause overlays.
+*   **Intervention Type Play Previews**: Clicking the play button beside any card triggers an inline interactive simulation of that specific exercise (Classic Breathing, Minimal Breathing, or Math Puzzles).
+*   **Blocked Website Trigger Scope**: Configures the trigger scope rules (block domain & subdomains vs. exact hostname only) specifically per website in the details panel.
+*   **Dynamic Depth Meter on Reels**: Adapts the depth ruler and red marker to move down dynamically as you watch more Reels, Shorts, or TikToks.
+*   **Configurable Depth Display**: Adds a dashboard option to completely disable the depth indicator ruler and red dot.
+*   **Per-Site Sinking Controls**: Keeps Anchor Sinking and the Reel Blocker enabled by default for every blocked website, with a per-site override available in app-specific settings.
+*   **Touchscreen scrolling limits**: Enforces `touch-action: none` rules when limits are reached to fully support touchscreen and mobile scrolling limits.
 
-### v1.3.2
-- **AMO Validation Fix:** Updated the Firefox build script to declare `data_collection_permissions: ["none"]` as required by Mozilla's new Add-on Store policy for all new extensions. The addon now passes AMO validation cleanly.
+### v1.5.0
+*   **Top Bar SPA Navigation:** Replaced options pages with a topnav header SPA dashboard matching a premium visual style.
+*   **Website Details screen:** Added details SPA tab displaying urgereduction stats and app-specific configuration.
+*   **Domain Overrides:** Supports overriding blocker active state, breathing duration, and scroll check-in periods specifically per domain.
+*   **Dynamic Cooldown slider:** Integrated custom time selection slider on bypass.
+*   **Animated Hourglass:** Added flipping SVG hourglass re-interventions.
+*   **Popup Block Toggles:** Context-sensitive block/allow buttons inside the compact popup.
 
-### v1.3.1
-- **Scroll-Up Fix:** When Reel Mode limit is reached, you can now still scroll back up to re-watch previous videos. Only downward scrolling is blocked.
-- **Firefox for Android Support:** The `.xpi` build now includes the `gecko_android` manifest declaration, making the extension compatible with Firefox Mobile (v113+).
-- **Correct Extension ID:** Updated the Firefox addon ID from the original author's handle to `anchor@athulkrishna2015`.
-- **Credits Updated:** Both the popup and README now correctly list the original creators, the maintainer (athulkrishna2015), and a link back to the original `benjchan/Anchor` fork.
+### v1.4.0
+*   **Options Page:** Separated settings panel into a full-screen, high-quality Options page (`options.html` / `options.js` / `options.css`) to prevent popups from feeling cramped.
+*   **Premium Interventions Unlocked:** Added 5 mindful intervention styles, including character lengths, custom breathing phrases, and character set complexity options.
+*   **Focus Scheduling:** Implemented calendar schedules (select active weekdays and time bounds) to pause blocking outside focus hours.
+*   **Re-Interventions:** Added timer loops that check back in periodically during active browsing.
 
-### v1.3.0
-- **Operating Modes (Allowlist vs Blocklist):** Added a global toggle. You can now configure Anchor to run everywhere (Blocklist) or set it to run *only* on sites you explicitly specify (Allowlist).
-- **First-Run Onboarding:** Built a brand new interactive setup page that automatically launches when you install the extension, asking you to choose your preferred operating mode.
-- **Project Links:** Re-routed all internal links and README documentation to point to the new `athulkrishna2015/Anchor` repository.
-
-### v1.2.0
-- **Domain & Subdomain Exclusions:** You can now choose whether to disable Anchor on a specific subdomain (e.g. `music.youtube.com`) or across an entire domain structure (`youtube.com`).
-- **Improved Pacing (Virtual Scale):** Updated the physics engine to use a virtual scale (1m = 1000px). This makes reaching a 10m depth take about 15-20 posts instead of an exhausting 60+ posts, improving the pacing and user satisfaction.
-- **Configurable Start Buffers:** Added UI settings to change the initial "safe zone" buffer length for both standard scrolling and Reel mode, ensuring the extension doesn't distract you during genuine use.
-- **Popup UI Enhancements:** Re-engineered the settings window to be fully scrollable, comfortably supporting any future additions without breaking Chrome's window limits.
-- **Robust Reel Mode Blocker:** Rewrote the scroll-blocking logic to hook into the absolute highest level of the browser window, permanently fixing the issue where TikTok or YouTube Shorts could bypass the blocker.
-
-### v1.1.0
-- **Reel Mode added!** Anchor now supports infinitely scrolling video feeds like YouTube Shorts, TikTok, and Instagram Reels. The standard depth meter transforms into a "Reel Tracker" and blocks you when you've reached your configured limit.
-- **Advanced Settings Panel:** Added a new configuration menu inside the popup.
-- **Domain Exclusions:** Added the ability to completely disable Anchor on specific sites.
-- **Custom Depth & Reel Limits:** Easily tweak exactly how far you want to be able to scroll/swipe before hitting rock bottom.
-- **CPU Saver (Animation Density):** Experiencing lag? You can now lower the number of animated fish, or turn them off entirely, straight from the settings menu.
-- **Natural Darkening CSS:** Re-engineered the sea darkening effect to use a deep `linear-gradient` with an eased opacity curve and a `multiply` blend mode for a much more immersive sinking experience.
-- **Manifest V3 Migration:** Brought the extension up to modern standards and created a cross-browser Python build script.
+---
 
 ## Project created by:
-* [Brendan Browne-Adams](https://www.brendanbrownedesigns.com/)
-* [Lahari Goswami](https://laharigoswami.cargo.site)
-* [Miki Chiu](https://www.mikichiu.com)
-* [Tayo Kopfer](https://tayo.co.za)
-* [Twomuch Studio](https://twomuch.studio)
+*   [Brendan Browne-Adams](https://www.brendanbrownedesigns.com/)
+*   [Lahari Goswami](https://laharigoswami.cargo.site)
+*   [Miki Chiu](https://www.mikichiu.com)
+*   [Tayo Kopfer](https://tayo.co.za)
+*   [Twomuch Studio](https://twomuch.studio)
 
 **Maintained & extended by:**
-* [athulkrishna2015](https://github.com/athulkrishna2015)
+*   [athulkrishna2015](https://github.com/athulkrishna2015)
 
 **Forked from the original by:**
-* [benjchan/Anchor](https://github.com/benjchan/Anchor)
+*   [benjchan/Anchor](https://github.com/benjchan/Anchor)

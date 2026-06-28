@@ -1,0 +1,1 @@
+// Moved to js/background.js as part of the refactored extension architecture.

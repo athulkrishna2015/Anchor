@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Anchor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            width: 300px;
+            margin: 0;
+            padding: 24px;
+            font-family: 'Outfit', sans-serif;
+            background: #18181b; /* zinc-900 */
+            color: #f4f4f5;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .logo-icon {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .attempts-num {
+            font-size: 56px;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .attempts-label {
+            font-size: 14px;
+            color: #a1a1aa; /* zinc-400 */
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .btn-dashboard {
+            width: 100%;
+            background: #6366f1; /* indigo-500 */
+            color: #ffffff;
+            border: none;
+            padding: 12px;
+            border-radius: 9999px; /* Pill shape */
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 16px;
+            text-align: center;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .btn-dashboard:hover {
+            background: #4f46e5;
+        }
+
+        .total-saved {
+            font-size: 13px;
+            color: #71717a; /* zinc-500 */
+            text-align: center;
+            margin-bottom: 0px;
+        }
+
+        /* Toggle Add/Remove */
+        .toggle-area {
+            border-top: 1px solid #27272a;
+            padding-top: 16px;
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .toggle-btn {
+            background: transparent;
+            border: 1px solid #3f3f46;
+            color: #a1a1aa;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .toggle-btn:hover {
+            border-color: #52525b;
+            color: #f4f4f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.8)); margin-right: 4px;">
+            <circle cx="12" cy="5" r="3"></circle>
+            <line x1="12" y1="8" x2="12" y2="22"></line>
+            <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
+        </svg>
+        <span class="logo-text">Anchor</span>
+    </div>
+
+    <div class="attempts-num" id="stat--attempts">0</div>
+    <div class="attempts-label" id="stat--label">Attempts to open websites within the last 24h.</div>
+
+    <button class="btn-dashboard" id="btn-dashboard">Open dashboard</button>
+    <div class="total-saved" id="stat--saved-total">You have saved 0 mins in total.</div>
+
+    <div class="toggle-area" id="quick-add-area" style="display:none;">
+        <button class="toggle-btn" id="btn-quick-toggle">Exclude website</button>
+    </div>
+
+    <script src="jquery-3.2.1.js"></script>
+    <script src="js/popup.js"></script>
+</body>
+</html>

@@ -5,6 +5,66 @@ import json
 import datetime
 import subprocess
 import argparse
+import shutil
+
+CHROME_BUILD_DIR = "chrome_build"
+FIREFOX_BUILD_DIR = "firefox_build"
+FIREFOX_TEMP_BUILD_DIR = "firefox_temp_build"
+
+
+def load_manifest(version_override=None):
+    """Load the canonical Chrome manifest and apply optional version override."""
+    with open(os.path.join(CHROME_BUILD_DIR, "manifest.json"), "r") as f:
+        manifest = json.load(f)
+
+    if version_override:
+        manifest["version"] = version_override
+
+    return manifest
+
+
+def transform_manifest_for_firefox(manifest):
+    """Return a Firefox-compatible copy of the Chrome MV3 manifest."""
+    firefox_manifest = json.loads(json.dumps(manifest))
+
+    if "background" in firefox_manifest and "service_worker" in firefox_manifest["background"]:
+        firefox_manifest["background"]["scripts"] = [firefox_manifest["background"]["service_worker"]]
+
+    firefox_manifest["browser_specific_settings"] = {
+        "gecko": {
+            "id": "anchor@athulkrishna2015",
+            "strict_min_version": "109.0",
+            "data_collection_permissions": {
+                "required": ["none"]
+            }
+        },
+        "gecko_android": {
+            "strict_min_version": "113.0"
+        }
+    }
+
+    return firefox_manifest
+
+
+def iter_extension_files():
+    """Yield all packaged files from the Chrome build folder except manifest."""
+    for root, _, files in os.walk(CHROME_BUILD_DIR):
+        for file in files:
+            path = os.path.join(root, file)
+            rel_path = os.path.relpath(path, CHROME_BUILD_DIR)
+            if rel_path == "manifest.json":
+                continue
+            yield path, rel_path
+
+
+def copy_unpacked_build(destination, manifest):
+    """Copy the Chrome build folder to destination and write the supplied manifest."""
+    if os.path.exists(destination):
+        shutil.rmtree(destination)
+
+    shutil.copytree(CHROME_BUILD_DIR, destination)
+    with open(os.path.join(destination, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
 
 def load_env():
     """Load API keys from .env file."""
@@ -22,68 +82,26 @@ def create_addon(browser, version_override=None):
     """Create a zip/xpi package for the specified browser."""
     extension = "xpi" if browser == "firefox" else "zip"
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    with open("manifest.json", "r") as f:
-        manifest = json.load(f)
 
-    version = version_override if version_override else manifest.get("version", "1.0.0")
+    manifest = load_manifest(version_override)
+
+    version = manifest.get("version", "1.0.0")
     filename = f"anchor_{browser}_v{version}_{timestamp}.{extension}"
-    
-    files_to_include = [
-        "background.js",
-        "content.js",
-        "icon.png",
-        "jquery-3.2.1.js",
-        "main.css",
-        "popup.css",
-        "popup.html",
-        "popup.js",
-        "onboarding.html",
-        "onboarding.js"
-    ]
-    
-    if version_override:
-        manifest["version"] = version_override
-        
+
     if browser == "firefox":
-        # Firefox MV3 requires 'scripts' fallback for background
-        if "background" in manifest and "service_worker" in manifest["background"]:
-            manifest["background"]["scripts"] = [manifest["background"]["service_worker"]]
-            # We keep service_worker for newer Firefox versions
-        
-        manifest["browser_specific_settings"] = {
-            "gecko": {
-                "id": "anchor@athulkrishna2015",
-                "strict_min_version": "109.0",
-                "data_collection_permissions": {
-                    "required": ["none"]
-                }
-            },
-            "gecko_android": {
-                "strict_min_version": "113.0"
-            }
-        }
-    
+        manifest = transform_manifest_for_firefox(manifest)
+
     with zipfile.ZipFile(filename, 'w') as zipf:
-        for file in files_to_include:
-            if os.path.exists(file):
-                zipf.write(file)
-        
+        for source_path, archive_path in iter_extension_files():
+            zipf.write(source_path, archive_path)
+
         manifest_str = json.dumps(manifest, indent=2)
         zipf.writestr("manifest.json", manifest_str)
-        
+
     if browser == "firefox":
-        unpacked_dir = "firefox_build"
-        if not os.path.exists(unpacked_dir):
-            os.makedirs(unpacked_dir)
-        import shutil
-        for file in files_to_include:
-            if os.path.exists(file):
-                shutil.copy2(file, os.path.join(unpacked_dir, file))
-        with open(os.path.join(unpacked_dir, "manifest.json"), "w") as f:
-            json.dump(manifest, f, indent=2)
-        print(f"Created unpacked directory: {unpacked_dir}")
-        
+        copy_unpacked_build(FIREFOX_BUILD_DIR, manifest)
+        print(f"Created unpacked directory: {FIREFOX_BUILD_DIR}")
+
     print(f"Created {filename}")
     return filename
 
@@ -97,43 +115,8 @@ def sign_firefox(version, version_override=None):
         print("\nError: AMO_JWT_ISSUER or AMO_JWT_SECRET not found in .env")
         return
 
-    # Create a temporary directory for signing
-    tmp_dir = "firefox_temp_build"
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-
-    # Re-run the logic to get the Firefox manifest
-    with open("manifest.json", "r") as f:
-        manifest = json.load(f)
-    
-    if version_override:
-        manifest["version"] = version_override
-
-    # Firefox specific transformations
-    if "background" in manifest and "service_worker" in manifest["background"]:
-        manifest["background"]["scripts"] = [manifest["background"]["service_worker"]]
-    
-    manifest["browser_specific_settings"] = {
-        "gecko": {
-            "id": "anchor@athulkrishna2015",
-            "strict_min_version": "109.0",
-            "data_collection_permissions": { "required": ["none"] }
-        }
-    }
-
-    # Copy files to temp dir
-    files_to_include = [
-        "background.js", "content.js", "icon.png", "jquery-3.2.1.js",
-        "main.css", "popup.css", "popup.html", "popup.js",
-        "onboarding.html", "onboarding.js"
-    ]
-    for file in files_to_include:
-        if os.path.exists(file):
-            with open(file, 'rb') as src, open(os.path.join(tmp_dir, file), 'wb') as dst:
-                dst.write(src.read())
-    
-    with open(os.path.join(tmp_dir, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
+    manifest = transform_manifest_for_firefox(load_manifest(version_override))
+    copy_unpacked_build(FIREFOX_TEMP_BUILD_DIR, manifest)
 
     print(f"\nSigning Firefox addon...")
     cmd = [
@@ -141,7 +124,7 @@ def sign_firefox(version, version_override=None):
         "--api-key", issuer,
         "--api-secret", secret,
         "--channel", "listed",
-        "--source-dir", tmp_dir,
+        "--source-dir", FIREFOX_TEMP_BUILD_DIR,
         "--artifacts-dir", "./web-ext-artifacts"
     ]
     
@@ -150,10 +133,8 @@ def sign_firefox(version, version_override=None):
         print("\nSuccessfully signed Firefox addon!")
     finally:
         # Cleanup safely
-        if os.path.exists(tmp_dir):
-            for file in os.listdir(tmp_dir):
-                os.remove(os.path.join(tmp_dir, file))
-            os.rmdir(tmp_dir)
+        if os.path.exists(FIREFOX_TEMP_BUILD_DIR):
+            shutil.rmtree(FIREFOX_TEMP_BUILD_DIR, ignore_errors=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build and optionally sign the Anchor extension.")

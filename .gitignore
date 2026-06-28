@@ -5,4 +5,6 @@ __pycache__/
 .amo-upload-uuid
 firefox_build/
 .antigravitycli/
+zen-test-profile/
+firefox_temp_build/
 

@@ -1,0 +1,1 @@
+// License information for background script is not needed.
