@@ -42,7 +42,7 @@ Because Firefox requires Manifest V3 background scripts to be declared as `scrip
 ### Automated Testing with Persistent Profile (Recommended)
 You can launch Zen Browser or Firefox from the terminal with the extension pre-loaded and session changes persisted (preventing the "first-time setup" welcome flow from appearing on every run):
 ```bash
-npx web-ext run --source-dir firefox_build --firefox /usr/bin/zen-browser --firefox-profile ./zen-test-profile --profile-create-if-missing --keep-profile-changes
+npx web-ext run --source-dir firefox_build --firefox /usr/bin/zen-browser --firefox-profile /mnt/0946E88701BE265B/portable/Extension/Anchor/zen-test-profile --profile-create-if-missing --keep-profile-changes
 ```
 
 ---
