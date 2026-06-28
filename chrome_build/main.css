@@ -137,7 +137,12 @@
 html.anchor-at-bottom,
 body.anchor-at-bottom {
     overflow: hidden !important;
-    touch-action: none !important;
+}
+
+html.anchor-at-bottom,
+body.anchor-at-bottom,
+html.anchor-at-bottom *:not(.anchor):not(.anchor *):not(#anchor-overlay):not(#anchor-overlay *) {
+    touch-action: pan-down !important;
 }
 
 @keyframes swim {

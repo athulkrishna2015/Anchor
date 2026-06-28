@@ -1,3 +1,42 @@
+// Synchronously insert stylesheet to hide document element and prevent page content flashing
+(function() {
+    let style = document.createElement('style');
+    style.id = 'anchor-hide-style';
+    style.innerHTML = 'html { display: none !important; }';
+    if (document.documentElement) {
+        document.documentElement.appendChild(style);
+    } else {
+        let observer = new MutationObserver(function() {
+            if (document.documentElement) {
+                document.documentElement.appendChild(style);
+                observer.disconnect();
+            }
+        });
+        observer.observe(document, { childList: true, subtree: true });
+    }
+})();
+
+function removeHideStyle() {
+    let hideStyle = document.getElementById('anchor-hide-style');
+    if (hideStyle) {
+        hideStyle.remove();
+    }
+}
+
+function runWhenBodyExists(callback) {
+    if (document.body) {
+        callback();
+    } else {
+        let observer = new MutationObserver(function() {
+            if (document.body) {
+                observer.disconnect();
+                callback();
+            }
+        });
+        observer.observe(document.documentElement, { childList: true });
+    }
+}
+
 var depthBottomMeters = 10; //Depth in meters
 var cpuSetting = 'high';
 var reelLimit = 10;
@@ -17,7 +56,7 @@ function checkReelMode() {
     var url = window.location.href;
     return url.includes('youtube.com/shorts') || 
            url.includes('tiktok.com') || 
-           url.includes('instagram.com/reels');
+           url.includes('instagram.com/reel');
 }
 
 var init = function(){
@@ -278,6 +317,7 @@ function runAnchorIntervention(settings, onComplete) {
     overlay.append(wrapper);
     $("body").append(overlay);
     $("body").addClass("anchor-active");
+    removeHideStyle();
 
     function prependFavicon() {
         let uniqueId = "fav-" + Math.random().toString(36).substr(2, 9);
@@ -464,9 +504,14 @@ function runAnchorIntervention(settings, onComplete) {
         let instructionText = $(`<h1 style="font-size:24px; font-weight:600; color:#cbd5e1; font-family:'Outfit', sans-serif; text-align:center; margin-bottom: 20px;">${phrase}</h1>`);
         wrapper.append(instructionText);
 
+        let secondsLeft = duration;
+        let elapsed = 0;
+        let timerId;
+
         let bubble = $(`
-            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; align-items: center; justify-content: center; margin: 30px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
+            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 30px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
                 <span class="breath-action" style="font-size: 20px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Breathe</span>
+                <span class="breath-timer" style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-top: 4px; display: block;">${secondsLeft}s left</span>
             </div>
         `);
         wrapper.append(bubble);
@@ -480,37 +525,73 @@ function runAnchorIntervention(settings, onComplete) {
         } else {
             statsLabel.text(`First attempt to open ${siteName} today`);
         }
-
-        let secondsLeft = duration;
-        let timerId;
-        let elapsed = 0;
         
         function updateBreathCycle() {
             let phase = elapsed % 8;
-            if (phase === 0) {
-                bubble.css({
-                    "transform": "scale(1.35)",
-                    "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
-                    "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
-                });
+            if (phase < 4) {
+                if (phase === 0 || bubble.find(".breath-action").text().indexOf("Inhale") === -1) {
+                    bubble.css({
+                        "transform": "scale(1.35)",
+                        "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
+                        "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
+                      });
+                }
                 bubble.find(".breath-action").text("Inhale");
-            } else if (phase === 4) {
-                bubble.css({
-                    "transform": "scale(0.9)",
-                    "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
-                    "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
-                });
+            } else {
+                if (phase === 4 || bubble.find(".breath-action").text().indexOf("Exhale") === -1) {
+                    bubble.css({
+                        "transform": "scale(0.9)",
+                        "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
+                        "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
+                    });
+                }
                 bubble.find(".breath-action").text("Exhale");
             }
         }
+
+        function handleReset() {
+            elapsed = 0;
+            secondsLeft = duration;
+            bubble.find(".breath-timer").text(`${secondsLeft}s left`);
+            bubble.find(".breath-action").text("Inhale");
+            bubble.css({
+                "transform": "scale(0.9)",
+                "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
+                "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
+            });
+            if (bubble[0]) {
+                bubble[0].offsetHeight;
+            }
+            updateBreathCycle();
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                handleReset();
+            }
+        }
+
+        window.addEventListener('blur', handleReset);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        function cleanupListeners() {
+            window.removeEventListener('blur', handleReset);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
         
+        bubble.find(".breath-action").text("Inhale");
         setTimeout(updateBreathCycle, 50);
         
         timerId = setInterval(function() {
+            if (document.hidden || !document.hasFocus()) {
+                handleReset();
+                return;
+            }
             elapsed++;
             secondsLeft--;
             if (secondsLeft <= 0) {
                 clearInterval(timerId);
+                cleanupListeners();
                 // Reset card styling for check-in
                 wrapper.css({
                     "background": "#18181b",
@@ -520,6 +601,7 @@ function runAnchorIntervention(settings, onComplete) {
                 });
                 showDecisionScreen();
             } else {
+                bubble.find(".breath-timer").text(`${secondsLeft}s left`);
                 updateBreathCycle();
             }
         }, 1000);
@@ -532,43 +614,84 @@ function runAnchorIntervention(settings, onComplete) {
             "backdrop-filter": "none"
         });
 
+        let secondsLeft = duration;
+        let elapsed = 0;
+        let timerId;
+
         let bubble = $(`
-            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; align-items: center; justify-content: center; margin: 50px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
+            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 50px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
                 <span class="breath-action" style="font-size: 20px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Breathe</span>
+                <span class="breath-timer" style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-top: 4px; display: block;">${secondsLeft}s left</span>
             </div>
         `);
         wrapper.append(bubble);
-
-        let secondsLeft = duration;
-        let timerId;
-        let elapsed = 0;
         
         function updateBreathCycle() {
             let phase = elapsed % 8;
-            if (phase === 0) {
-                bubble.css({
-                    "transform": "scale(1.35)",
-                    "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
-                    "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
-                });
+            if (phase < 4) {
+                if (phase === 0 || bubble.find(".breath-action").text().indexOf("Inhale") === -1) {
+                    bubble.css({
+                        "transform": "scale(1.35)",
+                        "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
+                        "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
+                    });
+                }
                 bubble.find(".breath-action").text("Inhale");
-            } else if (phase === 4) {
-                bubble.css({
-                    "transform": "scale(0.9)",
-                    "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
-                    "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
-                });
+            } else {
+                if (phase === 4 || bubble.find(".breath-action").text().indexOf("Exhale") === -1) {
+                    bubble.css({
+                        "transform": "scale(0.9)",
+                        "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
+                        "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
+                    });
+                }
                 bubble.find(".breath-action").text("Exhale");
             }
         }
+
+        function handleReset() {
+            elapsed = 0;
+            secondsLeft = duration;
+            bubble.find(".breath-timer").text(`${secondsLeft}s left`);
+            bubble.find(".breath-action").text("Inhale");
+            bubble.css({
+                "transform": "scale(0.9)",
+                "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
+                "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
+            });
+            if (bubble[0]) {
+                bubble[0].offsetHeight;
+            }
+            updateBreathCycle();
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                handleReset();
+            }
+        }
+
+        window.addEventListener('blur', handleReset);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        function cleanupListeners() {
+            window.removeEventListener('blur', handleReset);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
         
+        bubble.find(".breath-action").text("Inhale");
         setTimeout(updateBreathCycle, 50);
         
         timerId = setInterval(function() {
+            if (document.hidden || !document.hasFocus()) {
+                handleReset();
+                return;
+            }
             elapsed++;
             secondsLeft--;
             if (secondsLeft <= 0) {
                 clearInterval(timerId);
+                cleanupListeners();
                 wrapper.css({
                     "background": "#18181b",
                     "border": "1px solid #27272a",
@@ -577,6 +700,7 @@ function runAnchorIntervention(settings, onComplete) {
                 });
                 showDecisionScreen();
             } else {
+                bubble.find(".breath-timer").text(`${secondsLeft}s left`);
                 updateBreathCycle();
             }
         }, 1000);
@@ -827,7 +951,7 @@ function getAnchorNavigationType() {
     return 'navigate';
 }
 
-chrome.runtime.sendMessage({type: "status", navigationType: getAnchorNavigationType()}, function(response) {
+chrome.runtime.sendMessage({type: "status", url: window.location.href, navigationType: getAnchorNavigationType()}, function(response) {
     if (response && response.status == 1) {
         globalSettings = response;
         if (response.customDepth) depthBottomMeters = response.customDepth;
@@ -838,21 +962,29 @@ chrome.runtime.sendMessage({type: "status", navigationType: getAnchorNavigationT
         
         // If this page is not a blocked target website, do absolutely nothing
         if (!response.isTarget) {
+            removeHideStyle();
             return;
         }
         
         let anchorEnabled = response.anchorEnabled;
         let sinkingEnabled = response.sinkingEnabled !== false;
         
-        if (!response.isExcluded && anchorEnabled) {
-            runAnchorIntervention(response, function() {
+        runWhenBodyExists(function() {
+            if (!response.isExcluded && anchorEnabled) {
+                runAnchorIntervention(response, function() {
+                    if (sinkingEnabled) init();
+                    startReInterventionTimer(response);
+                });
+            } else if (!response.isExcluded) {
                 if (sinkingEnabled) init();
                 startReInterventionTimer(response);
-            });
-        } else if (!response.isExcluded) {
-            if (sinkingEnabled) init();
-            startReInterventionTimer(response);
-        }
+                removeHideStyle();
+            } else {
+                removeHideStyle();
+            }
+        });
+    } else {
+        removeHideStyle();
     }
     return;
 });

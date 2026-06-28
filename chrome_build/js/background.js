@@ -120,9 +120,10 @@ chrome.runtime.onMessage.addListener(
 
     if (request.type === "status") {
       let domain = "";
-      if (sender.tab && sender.tab.url) {
+      let checkUrl = request.url || (sender.tab && sender.tab.url);
+      if (checkUrl) {
           try {
-              let url = new URL(sender.tab.url);
+              let url = new URL(checkUrl);
               domain = url.hostname;
               if (domain.startsWith("www.")) domain = domain.substring(4);
           } catch(e) {}
@@ -215,9 +216,9 @@ chrome.runtime.onMessage.addListener(
         }
         
         // Only run website blocklist/allowlist checks if we aren't already excluded by schedule/cooldown
-        if (!isExcluded && sender.tab && sender.tab.url) {
+        if (!isExcluded && checkUrl) {
             try {
-                let url = new URL(sender.tab.url);
+                let url = new URL(checkUrl);
                 if (mode === 'blocklist') {
                     if (result.exclusions) {
                         isExcluded = result.exclusions.some(ex => {
@@ -245,9 +246,9 @@ chrome.runtime.onMessage.addListener(
         }
         
         let isTarget = false;
-        if (sender.tab && sender.tab.url) {
+        if (checkUrl) {
             try {
-                let url = new URL(sender.tab.url);
+                let url = new URL(checkUrl);
                 if (mode === 'blocklist') {
                     if (result.exclusions) {
                         isTarget = !result.exclusions.some(ex => {
