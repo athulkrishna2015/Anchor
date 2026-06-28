@@ -381,7 +381,7 @@ function runAnchorIntervention(settings, onComplete) {
         let sliderContainer = $('<div style="width:100%; display:flex; flex-direction:column; align-items:center; gap:24px; margin-bottom:48px;"></div>');
         
         let maxVal = parseInt(settings.reInterventionInterval) || 10;
-        let defaultVal = parseInt(settings.anchorBypassTime) || Math.min(5, maxVal);
+        let defaultVal = parseInt(settings.activeCooldownRemainingMinutes) || 1;
         if (defaultVal > maxVal) defaultVal = maxVal;
         
         let slider = $(`<input type="range" min="1" max="${maxVal}" value="${defaultVal}" style="width:100%; max-width:360px; -webkit-appearance:none; -moz-appearance:none; appearance:none; height:24px; background:transparent; outline:none;">`);
@@ -814,7 +814,20 @@ function startReInterventionTimer(settings) {
     }
 }
 
-chrome.runtime.sendMessage({type: "status"}, function(response) {
+function getAnchorNavigationType() {
+    if (performance && performance.getEntriesByType) {
+        let navEntries = performance.getEntriesByType('navigation');
+        if (navEntries && navEntries.length > 0) {
+            return navEntries[0].type;
+        }
+    }
+    if (performance && performance.navigation && performance.navigation.type === 1) {
+        return 'reload';
+    }
+    return 'navigate';
+}
+
+chrome.runtime.sendMessage({type: "status", navigationType: getAnchorNavigationType()}, function(response) {
     if (response && response.status == 1) {
         globalSettings = response;
         if (response.customDepth) depthBottomMeters = response.customDepth;

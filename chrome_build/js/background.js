@@ -141,6 +141,7 @@ chrome.runtime.onMessage.addListener(
         let reInterventionEnabled = true;
         let reInterventionInterval = 10;
         let sinkingEnabled = true;
+        let activeCooldownRemainingMinutes = null;
         
         // Merge domain-specific overrides
         let domainOverrides = result[domainSettingsKey];
@@ -167,7 +168,10 @@ chrome.runtime.onMessage.addListener(
         if (anchorBypassMode === 'cooldown') {
              let cooldownVal = result[cooldownKey];
              if (cooldownVal && Date.now() < cooldownVal) {
-                 isExcluded = true;
+                 activeCooldownRemainingMinutes = Math.max(1, Math.ceil((cooldownVal - Date.now()) / (60 * 1000)));
+                 if (request.navigationType !== 'reload') {
+                     isExcluded = true;
+                 }
              }
         } else if (anchorBypassMode === 'once') {
              if (sender.tab && bypassedTabs[sender.tab.id]) {
@@ -301,6 +305,7 @@ chrome.runtime.onMessage.addListener(
             anchorIntentionWarning: result.anchorIntentionWarning === undefined ? true : result.anchorIntentionWarning,
             anchorBypassMode: anchorBypassMode,
             anchorBypassTime: result.anchorBypassTime || 5,
+            activeCooldownRemainingMinutes: activeCooldownRemainingMinutes,
             reInterventionEnabled: reInterventionEnabled,
             reInterventionInterval: reInterventionInterval,
             reInterventionMode: result.reInterventionMode || 'time',
