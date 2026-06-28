@@ -44,6 +44,17 @@ A top navigation SPA dashboard (`dashboard.html`) managing everything:
 *   The extension popup menu displays the attempts count for the active website in the last 24h. It features a contextual quick-action button at the bottom: **Exclude [domain]** or **Block [domain]** dynamically depending on the current tab location and operating mode.
 
 ---
+<img width="1920" height="1025" alt="Screenshot_20260628_140141" src="https://github.com/user-attachments/assets/27e20e8f-3a0c-471c-b4e2-0485f51e4019" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140147" src="https://github.com/user-attachments/assets/be02e883-38de-4dbb-a9d7-51b3515f29f7" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140202" src="https://github.com/user-attachments/assets/faf56d3c-0773-4c01-9171-6527c1d0dd7e" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140216" src="https://github.com/user-attachments/assets/678abdf3-8e0c-4d2b-80bf-ae6fad4a0a6c" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140318" src="https://github.com/user-attachments/assets/7297c0f9-3eb4-44cd-832e-d1ccf62905dd" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140323" src="https://github.com/user-attachments/assets/78c7d734-bc30-4527-bc6f-a5cb9bbe12d1" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140332" src="https://github.com/user-attachments/assets/b86958f4-f262-46d9-84c6-92b0a2203b03" />
+<img width="1920" height="1025" alt="Screenshot_20260628_140355" src="https://github.com/user-attachments/assets/651ccba8-22ed-4cbc-a2cc-71b87cf3ad4c" />
+<img width="379" height="467" alt="Screenshot_20260628_140437" src="https://github.com/user-attachments/assets/d6705143-75da-4842-90cd-11e2d2ee8626" />
+
+
 
 ## Extension Architecture
 
