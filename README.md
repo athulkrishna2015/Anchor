@@ -83,7 +83,7 @@ The script reads the Chrome extension from `chrome_build/` and refreshes `firefo
 ---
 
 ## Changelog
-### v1.6.0
+### v2.0.0
 *   **Favicon Integration**: Shows high-resolution website favicons instead of emojis in the websites breakdown list, details header, and mindful pause overlays.
 *   **Intervention Type Play Previews**: Clicking the play button beside any card triggers an inline interactive simulation of that specific exercise (Classic Breathing, Minimal Breathing, or Math Puzzles).
 *   **Blocked Website Trigger Scope**: Configures the trigger scope rules (block domain & subdomains vs. exact hostname only) specifically per website in the details panel.
