@@ -12,7 +12,7 @@ All browser extension files live in `chrome_build/`. This folder is the canonica
 
 Core JavaScript modules are located under `chrome_build/js/`:
 *   `chrome_build/js/background.js`: Manages service worker lifecycle, handles tab close signals, queries active schedules, and merges app-specific override parameters. Also handles fetching website favicons in the background to bypass host website CSP constraints.
-*   `chrome_build/js/content.js`: Injected into all web pages. Renders mindful pause overlays, manages scrolling indicators (depth line/marker), and enforces reels limit locks.
+*   `chrome_build/js/content.js`: Injected into all web pages. Renders mindful pause overlays, renders the default timed visit slider, manages scrolling indicators (depth line/marker), and enforces reels limit locks.
 *   `chrome_build/js/dashboard.js`: Backing logic for the SPA options panel (`chrome_build/dashboard.html`). Handles interactive details views, trigger scopes, and saves setting overrides.
 *   `chrome_build/js/popup.js`: Controls the extension quick-toggle dropdown menu (`chrome_build/popup.html`).
 *   `chrome_build/js/onboard.js`: Backing logic for the first-run installation welcome screen (`chrome_build/onboarding.html`).
@@ -74,3 +74,6 @@ Firefox automatically clips range input thumbs (`::-moz-range-thumb`) if the con
 
 ### 3. Sea Creatures (Fishes) Positioning
 To keep the surface at `scrollTop = 0` completely clean, sea creatures start at `depthStart + window.innerHeight * 1.1`. This keeps them below the bottom fold when the page is opened, ensuring they only float up once active diving begins.
+
+### 4. Timed Visit Slider and Re-Intervention Defaults
+The timed visit slider and re-intervention loop are enabled by default for all blocked websites. The Customize tab does not expose global toggles for these controls. `background.js` always reports `anchorBypassMode: "cooldown"` and defaults `reInterventionEnabled` to true, while `content.js` uses `reInterventionInterval` as the slider maximum.

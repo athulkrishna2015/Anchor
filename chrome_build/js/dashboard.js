@@ -43,8 +43,8 @@ $(document).ready(function() {
         let storageData = {
             operatingMode: $("#setting--operating-mode").val(),
             anchorEnabled: $("#setting--anchor-enabled").is(":checked"),
-            anchorBypassMode: $("#setting--anchor-bypass-mode").val(),
-            anchorBypassTime: parseInt($("#setting--anchor-bypass-time").val()) || 5,
+            anchorBypassMode: 'cooldown',
+            reInterventionEnabled: true,
             closeTabOnLeave: $("#setting--anchor-close-tab").is(":checked"),
 
             scheduleEnabled: $("#setting--schedule-enabled").is(":checked"),
@@ -119,15 +119,6 @@ $(document).ready(function() {
         $("#block-empty-state-view").show();
     });
 
-    // Toggles visibility of bypass cooldown row
-    $("#setting--anchor-bypass-mode").change(function() {
-        if ($(this).val() === 'cooldown') {
-            $("#bypass-cooldown-row").slideDown(200);
-        } else {
-            $("#bypass-cooldown-row").slideUp(200);
-        }
-    });
-
     // Toggles visibility of schedule inputs
     $("#setting--schedule-enabled").change(function() {
         if ($(this).is(":checked")) {
@@ -153,12 +144,6 @@ $(document).ready(function() {
         let allowlist = result.allowlist || [];
 
         let closeTab = result.closeTabOnLeave === undefined ? true : result.closeTabOnLeave;
-        let bypassMode = result.anchorBypassMode || 'once';
-        let bypassTime = result.anchorBypassTime || 5;
-
-        let reEnabled = result.reInterventionEnabled === undefined ? true : result.reInterventionEnabled;
-        let reInterval = result.reInterventionInterval || 10;
-
         let schedEnabled = result.scheduleEnabled === undefined ? false : result.scheduleEnabled;
         let schedStart = result.scheduleStart || '09:00';
         let schedEnd = result.scheduleEnd || '17:00';
@@ -181,10 +166,6 @@ $(document).ready(function() {
 
         $("#setting--anchor-enabled").prop("checked", anchorEnabled);
         $("#setting--depth-indicator-enabled").prop("checked", showDepthInd);
-        $("#setting--anchor-bypass-mode").val(bypassMode);
-        $("#setting--anchor-bypass-time").val(bypassTime);
-        if (bypassMode === 'cooldown') $("#bypass-cooldown-row").show();
-
         $("#setting--anchor-close-tab").prop("checked", closeTab);
 
 

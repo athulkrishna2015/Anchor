@@ -318,7 +318,7 @@ function runAnchorIntervention(settings, onComplete) {
     }
 
     function handleProceed() {
-        if (settings.anchorBypassMode === 'cooldown' || !settings.reInterventionEnabled) {
+        if (settings.anchorBypassMode === 'cooldown' && settings.reInterventionEnabled !== false) {
             showCooldownDecisionScreen();
         } else {
             logAttempt('opened');
@@ -380,13 +380,9 @@ function runAnchorIntervention(settings, onComplete) {
         // Slider Container
         let sliderContainer = $('<div style="width:100%; display:flex; flex-direction:column; align-items:center; gap:24px; margin-bottom:48px;"></div>');
         
-        let maxVal = 15; // default max
-        let defaultVal = parseInt(settings.anchorBypassTime) || 5;
-        
-        if (settings.reInterventionEnabled && settings.reInterventionInterval) {
-            maxVal = parseInt(settings.reInterventionInterval);
-            defaultVal = maxVal;
-        }
+        let maxVal = parseInt(settings.reInterventionInterval) || 10;
+        let defaultVal = parseInt(settings.anchorBypassTime) || Math.min(5, maxVal);
+        if (defaultVal > maxVal) defaultVal = maxVal;
         
         let slider = $(`<input type="range" min="1" max="${maxVal}" value="${defaultVal}" style="width:100%; max-width:360px; -webkit-appearance:none; -moz-appearance:none; appearance:none; height:24px; background:transparent; outline:none;">`);
         
@@ -420,7 +416,8 @@ function runAnchorIntervention(settings, onComplete) {
             let selectedMins = parseInt(slider.val());
             logAttempt('opened');
             
-            // Respect and pass selected duration back to re-intervention scheduler
+            // The visit window and the next check-in use the same selected duration.
+            settings.anchorBypassTime = selectedMins;
             settings.reInterventionInterval = selectedMins;
             
             chrome.runtime.sendMessage({

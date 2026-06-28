@@ -917,36 +917,6 @@
             <div class="option-card">
                 <div class="option-row">
                     <div class="option-info">
-                        <span class="option-title">Intentional website switching</span>
-                        <span class="option-sub">Choose bypass behavior mode</span>
-                        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:6px; max-width:550px; line-height:1.4;">
-                            • <strong>Allow opening once</strong>: Checks back in on the target site every single time you navigate to it or open it in a new tab.
-                            <br>• <strong>Bypass Cooldown</strong>: Grants you an unrestricted browsing window for a set time (e.g., 5 minutes) across all tabs, after which the check-in triggers again.
-                        </span>
-                    </div>
-                    <select class="styled-select" id="setting--anchor-bypass-mode">
-                        <option value="once">Allow opening once (re-intervene next time)</option>
-                        <option value="cooldown">Allow visiting for X minutes (Bypass Cooldown)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="option-card" id="bypass-cooldown-row" style="display:none;">
-                <div class="option-row">
-                    <div class="option-info">
-                        <span class="option-title">Bypass Cooldown Duration (Minutes)</span>
-                        <span class="option-sub">Free browsing time before requiring another pause</span>
-                        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:6px; max-width:550px; line-height:1.4;">
-                            Sets the timer for the Bypass Cooldown session. After unlocking a site, you can browse it freely for this duration without being interrupted by further check-ins.
-                        </span>
-                    </div>
-                    <input type="number" id="setting--anchor-bypass-time" min="1" max="120" class="styled-select" style="width: 80px; text-align: center;">
-                </div>
-            </div>
-
-            <div class="option-card">
-                <div class="option-row">
-                    <div class="option-info">
                         <span class="option-title">Close tab on intervention exit</span>
                         <span class="option-sub">Close tab immediately if you cancel the opening</span>
                         <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:6px; max-width:550px; line-height:1.4;">
@@ -1250,12 +1220,12 @@
                 <div style="font-size:12px; color:var(--text-dark); margin-top:8px;">If the intervention is disabled, you can still block this site.</div>
             </div>
 
-            <!-- Override 3: Re-intervention enabled -->
+            <!-- Override 3: Timed check-in enabled -->
             <div class="modal-option-card">
                 <div class="option-row" style="margin-bottom:12px;">
                     <div class="option-info">
-                        <span class="option-title">Re-Intervention enabled</span>
-                        <span class="option-sub">Interrupt scroll sessions</span>
+                        <span class="option-title">Timed Visit Check-In</span>
+                        <span class="option-sub">Show the time slider and check back in on this site</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="modal-override-re-enabled">
@@ -1264,9 +1234,9 @@
                 </div>
                 
                 <div id="modal-re-interval-row">
-                    <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700; margin-bottom:6px;">Maximum time interval</label>
+                    <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700; margin-bottom:6px;">Default check-in time</label>
                     <select class="styled-select" id="modal-override-re-interval" style="width:100%;">
-                        <option value="5">Default (5 minutes)</option>
+                        <option value="5">Short (5 minutes)</option>
                         <option value="10">Medium (10 minutes)</option>
                         <option value="15">Default (15 minutes)</option>
                         <option value="30">Long (30 minutes)</option>

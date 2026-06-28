@@ -32,13 +32,13 @@ Anchor intercepts your access immediately upon visiting target websites and prom
 A top navigation SPA dashboard (`dashboard.html`) managing everything:
 *   **Overview Stats:** Displays prevented attempts, time saved, 24h history, and annualized savings.
 *   **Dynamic Websites List:** Interactive list of blocked websites. Includes an enter-to-add search bar.
-*   **Domain Details View:** Click any site in the breakdown to view its specific attempts history and toggle **app-specific settings** (such as customizing breathing duration or adjusting/disabling re-intervention timers).
+*   **Domain Details View:** Click any site in the breakdown to view its specific attempts history and toggle **app-specific settings** (such as customizing breathing duration, re-intervention timing, and sinking/reel blocker behavior).
 
-### 4. Interactive Cooldown slider
-*   When bypass mode is set to "cooldown", completing an intervention opens a full-screen time selector. Slide to select exactly how long you need the site (e.g. 1-15 minutes), and the blocker will automatically lock back after that period.
+### 4. Timed Visit Slider
+*   Completing an intervention opens a full-screen time selector by default. Slide to select exactly how long you need the site, up to the configured re-intervention timer maximum, and Anchor will check back in after that period.
 
 ### 5. Hourglass Re-Intervention Loops
-*   Break infinite scroll loops with automatic re-intervention check-ins (enabled by default for all blocked sites, and customizable via per-site settings). Anchor will periodically check back in (e.g. every 10 minutes) showing an animated **hourglass SVG screen**. Choose to close the tab or undergo another mindful pause.
+*   Break infinite scroll loops with automatic re-intervention check-ins, enabled by default for all blocked sites. Anchor uses the timed visit slider duration for the active visit, capped by the configured re-intervention timer, then shows an animated **hourglass SVG screen**. Choose to close the tab or undergo another mindful pause.
 
 ### 6. Single-Click Popup Block/Allow Controls
 *   The extension popup menu displays the attempts count for the active website in the last 24h. It features a contextual quick-action button at the bottom: **Exclude [domain]** or **Block [domain]** dynamically depending on the current tab location and operating mode.
@@ -51,7 +51,7 @@ All browser extension files live in `chrome_build/`, which is the canonical Chro
 *   `chrome_build/dashboard.html` / `chrome_build/js/dashboard.js`: Top-nav SPA dashboard, details panel, and overrides manager.
 *   `chrome_build/popup.html` / `chrome_build/js/popup.js`: Compact popup displaying site-specific 24h attempts and quick-toggle blockers.
 *   `chrome_build/onboarding.html` / `chrome_build/js/onboard.js`: First-run onboarding setup page.
-*   `chrome_build/js/content.js`: Handles initial page intercepts, interventions overlay rendering, re-intervention timers, and scroll trackers.
+*   `chrome_build/js/content.js`: Handles initial page intercepts, timed visit slider rendering, interventions overlay rendering, re-intervention timers, and scroll trackers.
 *   `chrome_build/js/background.js`: Manages tab closing messages, verifies schedule checks, and merges domain overrides.
 
 ---
@@ -90,6 +90,7 @@ The script reads the Chrome extension from `chrome_build/` and refreshes `firefo
 *   **Dynamic Depth Meter on Reels**: Adapts the depth ruler and red marker to move down dynamically as you watch more Reels, Shorts, or TikToks.
 *   **Configurable Depth Display**: Adds a dashboard option to completely disable the depth indicator ruler and red dot.
 *   **Per-Site Sinking Controls**: Keeps Anchor Sinking and the Reel Blocker enabled by default for every blocked website, with a per-site override available in app-specific settings.
+*   **Default Timed Visit Check-Ins**: Removes the global Customize-tab cooldown/re-intervention controls. The timed slider and re-intervention loop are enabled by default for all blocked websites, with the slider maximum controlled by the re-intervention timer.
 *   **Touchscreen scrolling limits**: Enforces `touch-action: none` rules when limits are reached to fully support touchscreen and mobile scrolling limits.
 
 ### v1.5.0

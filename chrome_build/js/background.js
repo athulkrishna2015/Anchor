@@ -40,8 +40,8 @@ chrome.runtime.onMessage.addListener(
             let domain = url.hostname;
             if (domain.startsWith("www.")) domain = domain.substring(4);
             
-            chrome.storage.local.get(['anchorBypassMode', 'anchorBypassTime'], function(result) {
-                let mode = result.anchorBypassMode || 'once';
+            chrome.storage.local.get(['anchorBypassTime'], function(result) {
+                let mode = 'cooldown';
                 let time = result.anchorBypassTime || 5;
                 if (mode === 'cooldown') {
                     let key = "cooldown_" + domain;
@@ -163,7 +163,7 @@ chrome.runtime.onMessage.addListener(
         }
         
         // Check if there is an active bypass cooldown/session for this tab or domain
-        let anchorBypassMode = result.anchorBypassMode || 'once';
+        let anchorBypassMode = 'cooldown';
         if (anchorBypassMode === 'cooldown') {
              let cooldownVal = result[cooldownKey];
              if (cooldownVal && Date.now() < cooldownVal) {
