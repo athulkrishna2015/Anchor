@@ -96,7 +96,11 @@ document.addEventListener("DOMContentLoaded", function() {
             domains.forEach(dom => {
                 const badge = document.createElement("div");
                 badge.className = "domain-badge";
-                badge.innerHTML = `${dom} <span data-domain="${dom}">&times;</span>`;
+                badge.textContent = dom + " ";
+                const closeSpan = document.createElement("span");
+                closeSpan.setAttribute("data-domain", dom);
+                closeSpan.textContent = "×";
+                badge.appendChild(closeSpan);
                 
                 badge.querySelector("span").addEventListener("click", function() {
                     const toRemove = this.getAttribute("data-domain");

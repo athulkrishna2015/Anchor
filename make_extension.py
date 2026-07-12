@@ -29,14 +29,12 @@ def transform_manifest_for_firefox(manifest):
 
     if "background" in firefox_manifest and "service_worker" in firefox_manifest["background"]:
         firefox_manifest["background"]["scripts"] = [firefox_manifest["background"]["service_worker"]]
+        del firefox_manifest["background"]["service_worker"]
 
     firefox_manifest["browser_specific_settings"] = {
         "gecko": {
             "id": "anchor@athulkrishna2015",
-            "strict_min_version": "109.0",
-            "data_collection_permissions": {
-                "required": ["none"]
-            }
+            "strict_min_version": "109.0"
         },
         "gecko_android": {
             "strict_min_version": "113.0"
