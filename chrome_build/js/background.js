@@ -165,18 +165,18 @@ chrome.runtime.onMessage.addListener(
         }
         
         // Check if there is an active bypass cooldown/session for this tab or domain
-        let anchorBypassMode = 'cooldown';
+        let anchorBypassMode = result.anchorBypassMode || 'cooldown';
         if (anchorBypassMode === 'cooldown') {
              let cooldownVal = result[cooldownKey];
              if (cooldownVal && Date.now() < cooldownVal) {
-                 activeCooldownRemainingMinutes = Math.max(1, Math.ceil((cooldownVal - Date.now()) / (60 * 1000)));
-                 if (request.navigationType !== 'reload') {
-                     isExcluded = true;
-                 }
+                  activeCooldownRemainingMinutes = Math.max(1, Math.ceil((cooldownVal - Date.now()) / (60 * 1000)));
+                  if (request.navigationType !== 'reload' && sender.tab && bypassedTabs[sender.tab.id]) {
+                      isExcluded = true;
+                  }
              }
         } else if (anchorBypassMode === 'once') {
              if (sender.tab && bypassedTabs[sender.tab.id]) {
-                 isExcluded = true;
+                  isExcluded = true;
              }
         }
         
