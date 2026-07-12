@@ -137,19 +137,38 @@ def sign_firefox(version, version_override=None):
         if os.path.exists(FIREFOX_TEMP_BUILD_DIR):
             shutil.rmtree(FIREFOX_TEMP_BUILD_DIR, ignore_errors=True)
 
+import glob
+
+def clean_old_builds(new_chrome_file, new_firefox_file):
+    """Delete old built extension packages in the root directory, preserving the newly built ones."""
+    print("\nCleaning old build artifacts...")
+    for pattern in ["anchor_chrome_v*.zip", "anchor_firefox_v*.xpi"]:
+        for file in glob.glob(pattern):
+            if file != new_chrome_file and file != new_firefox_file:
+                try:
+                    os.remove(file)
+                    print(f"Removed old package: {file}")
+                except Exception as e:
+                    print(f"Error removing {file}: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build and optionally sign the Anchor extension.")
     parser.add_argument("version", nargs="?", help="Version override for the built addon (optional).")
     parser.add_argument("--sign", action="store_true", help="Sign the Firefox addon using credentials in .env")
+    parser.add_argument("--clean", action="store_true", help="Delete older zip/xpi build files and keep only the newly generated ones")
     
     args = parser.parse_args()
     
     # Build Chrome version
-    create_addon("chrome", args.version)
+    chrome_file = create_addon("chrome", args.version)
     
     # Build Firefox version (for local use)
-    create_addon("firefox", args.version)
+    firefox_file = create_addon("firefox", args.version)
     
     # Optionally sign the Firefox version
     if args.sign:
         sign_firefox(args.version)
+
+    # Clean old builds if requested
+    if args.clean:
+        clean_old_builds(chrome_file, firefox_file)

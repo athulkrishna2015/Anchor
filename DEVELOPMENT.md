@@ -56,6 +56,7 @@ python3 make_extension.py [version]
 ```
 
 *   **Version Parameter (Optional)**: Provide a version string (e.g. `2.0.0`) to override the baseline version in `manifest.json`.
+*   **--clean Parameter (Optional)**: Add `--clean` flag to automatically delete old build files (`anchor_chrome_v*.zip` and `anchor_firefox_v*.xpi`) and keep only the latest generated files.
 *   **Source Folder**: Reads extension files from `chrome_build/`.
 *   **Artifacts**: Generates `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi` in the root folder, and updates the `firefox_build/` unpacked directory.
 *   **Firefox Transform**: Copies `chrome_build/` into `firefox_build/` and writes a Firefox-compatible `manifest.json`.
