@@ -56,40 +56,9 @@ A top navigation SPA dashboard (`dashboard.html`) managing everything:
 
 
 
-## Extension Architecture
+## Development
 
-All browser extension files live in `chrome_build/`, which is the canonical Chrome unpacked extension folder:
-*   `chrome_build/dashboard.html` / `chrome_build/js/dashboard.js`: Top-nav SPA dashboard, details panel, and overrides manager.
-*   `chrome_build/popup.html` / `chrome_build/js/popup.js`: Compact popup displaying site-specific 24h attempts and quick-toggle blockers.
-*   `chrome_build/onboarding.html` / `chrome_build/js/onboard.js`: First-run onboarding setup page.
-*   `chrome_build/js/content.js`: Handles initial page intercepts, timed visit slider rendering, interventions overlay rendering, re-intervention timers, and scroll trackers.
-*   `chrome_build/js/background.js`: Manages tab closing messages, verifies schedule checks, and merges domain overrides.
-
----
-
-## Local Development & Testing
-
-### For Google Chrome
-The source code is natively formatted for **Google Chrome**.
-1.  Open Chrome and go to `chrome://extensions/`
-2.  Enable **Developer mode** in the top right corner.
-3.  Click **Load unpacked** and select this repository's `chrome_build/` folder.
-4.  To configure targets and schedules, click the Options link in the extension details or use the popup.
-
-### For Mozilla Firefox
-Use the build script to transform and package for Firefox:
-1.  Run `python3 make_extension.py`
-2.  Open Firefox and go to `about:addons`
-3.  Click the gear icon ⚙️ and select **Install Add-on From File...**
-4.  Select the generated `anchor_firefox_[date].xpi` file.
-
-### Building the Add-ons
-To package Chrome and Firefox versions, run:
-```bash
-python3 make_extension.py [version]
-```
-This builds `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi`.
-The script reads the Chrome extension from `chrome_build/` and refreshes `firefox_build/` with Firefox-specific manifest changes.
+For architecture overview, local testing setup, and compilation instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
