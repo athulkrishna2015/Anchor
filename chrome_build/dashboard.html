@@ -1039,7 +1039,7 @@
                 </div>
                 
                 <div style="margin-bottom:20px;">
-                    <label style="display:block; font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Operating Mode</label>
+                    <label for="setting--operating-mode" style="display:block; font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Operating Mode</label>
                     <select id="setting--operating-mode" class="styled-select" style="width:100%;">
                         <option value="blocklist">Blocklist (Run everywhere except exclusions)</option>
                         <option value="allowlist">Allowlist (Only run on target websites)</option>
@@ -1051,7 +1051,7 @@
                 </div>
 
                 <div style="margin-bottom:20px;">
-                    <label id="list-label-text" style="display:block; font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Configured Domains</label>
+                    <label id="list-label-text" for="setting--domains-list" style="display:block; font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Configured Domains</label>
                     <textarea id="setting--domains-list" style="width:100%; height:120px; background:#27272a; border:1px solid var(--border-color); border-radius:8px; color:#fff; padding:12px; font-family:inherit; outline:none; box-sizing:border-box;" placeholder="instagram.com&#10;youtube.com"></textarea>
                     <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.4;">
                         Enter one domain per line (e.g., <code>instagram.com</code>, <code>youtube.com</code>). Subdomains like <code>m.instagram.com</code> are automatically handled.
@@ -1075,11 +1075,11 @@
 
                     <div id="schedule-sub-panel" style="display:none; gap:16px; margin-bottom:16px;">
                         <div style="flex:1;">
-                            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Start Time</label>
+                            <label for="setting--schedule-start" style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Start Time</label>
                             <input type="time" id="setting--schedule-start" class="styled-select" style="width:100%; box-sizing:border-box;">
                         </div>
                         <div style="flex:1;">
-                            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">End Time</label>
+                            <label for="setting--schedule-end" style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">End Time</label>
                             <input type="time" id="setting--schedule-end" class="styled-select" style="width:100%; box-sizing:border-box;">
                         </div>
                     </div>
@@ -1196,7 +1196,7 @@
 
             <!-- Override 1: Custom Duration -->
             <div class="modal-option-card">
-                <label style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px;">App-specific duration</label>
+                <label for="modal-override-anchor-duration" style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px;">App-specific duration</label>
                 <select class="styled-select" id="modal-override-anchor-duration" style="width:100%;">
                     <option value="2">Short (2s)</option>
                     <option value="6">Default (Medium (6s))</option>
@@ -1239,7 +1239,7 @@
                 </div>
                 
                 <div id="modal-re-interval-row">
-                    <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700; margin-bottom:6px;">Default check-in time</label>
+                    <label for="modal-override-re-interval" style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700; margin-bottom:6px;">Default check-in time</label>
                     <select class="styled-select" id="modal-override-re-interval" style="width:100%;">
                         <option value="5">Short (5 minutes)</option>
                         <option value="10">Medium (10 minutes)</option>
@@ -1281,7 +1281,7 @@
 
             <!-- Scope Choice -->
             <div class="modal-option-card" style="margin-bottom:24px;">
-                <label style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:700; margin-bottom:12px;">Trigger Scope</label>
+                <span style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:700; margin-bottom:12px;">Trigger Scope</span>
                 <div style="display:flex; flex-direction:column; gap:16px;">
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
                         <input type="radio" name="scope-rule" value="subdomains" checked style="margin-top:3px;">
