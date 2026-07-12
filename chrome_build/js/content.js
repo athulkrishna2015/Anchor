@@ -528,6 +528,10 @@ function runAnchorIntervention(settings, onComplete) {
         let secondsLeft = duration;
         let elapsed = 0;
         let timerId;
+        // Event-driven focus tracking — more reliable than polling document.hasFocus()
+        // on mobile/touch devices where hasFocus() can return false for 100-500ms after
+        // the tab becomes active again.
+        let isTabActive = !document.hidden && document.hasFocus();
 
         let bubble = $(`
             <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 30px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
@@ -570,7 +574,7 @@ function runAnchorIntervention(settings, onComplete) {
             }
         }
 
-        function handleReset() {
+        function doReset() {
             elapsed = 0;
             secondsLeft = duration;
             bubble.find(".breath-timer").text(`${secondsLeft}s left`);
@@ -580,52 +584,69 @@ function runAnchorIntervention(settings, onComplete) {
                 "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
                 "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
             });
-            if (bubble[0]) {
-                bubble[0].offsetHeight;
-            }
+            if (bubble[0]) { bubble[0].offsetHeight; }
             setTimeout(updateBreathCycle, 150);
+        }
+
+        function startTicking() {
+            clearInterval(timerId);
+            timerId = setInterval(function() {
+                elapsed++;
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    clearInterval(timerId);
+                    cleanupListeners();
+                    wrapper.css({
+                        "background": "#18181b",
+                        "border": "1px solid #27272a",
+                        "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
+                        "padding": "32px 24px"
+                    });
+                    showDecisionScreen();
+                } else {
+                    bubble.find(".breath-timer").text(`${secondsLeft}s left`);
+                    updateBreathCycle();
+                }
+            }, 1000);
+        }
+
+        function handleFocusLost() {
+            if (!isTabActive) return; // already paused — ignore double-fires
+            isTabActive = false;
+            clearInterval(timerId);
+            doReset();
+        }
+
+        function handleFocusGained() {
+            if (isTabActive) return; // already running
+            if (document.hidden) return; // visibility hasn't resolved yet
+            isTabActive = true;
+            doReset(); // fresh start so the user sees a clean timer
+            startTicking();
         }
 
         function handleVisibilityChange() {
             if (document.hidden) {
-                handleReset();
+                handleFocusLost();
+            } else {
+                // Small delay so document.hasFocus() has time to settle on mobile
+                setTimeout(handleFocusGained, 150);
             }
         }
 
-        window.addEventListener('blur', handleReset);
+        window.addEventListener('blur', handleFocusLost);
+        window.addEventListener('focus', handleFocusGained);
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         function cleanupListeners() {
-            window.removeEventListener('blur', handleReset);
+            window.removeEventListener('blur', handleFocusLost);
+            window.removeEventListener('focus', handleFocusGained);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         }
         
         bubble.find(".breath-action").text("Inhale");
         setTimeout(updateBreathCycle, 150);
-        
-        timerId = setInterval(function() {
-            if (document.hidden || !document.hasFocus()) {
-                handleReset();
-                return;
-            }
-            elapsed++;
-            secondsLeft--;
-            if (secondsLeft <= 0) {
-                clearInterval(timerId);
-                cleanupListeners();
-                // Reset card styling for check-in
-                wrapper.css({
-                    "background": "#18181b",
-                    "border": "1px solid #27272a",
-                    "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
-                    "padding": "32px 24px"
-                });
-                showDecisionScreen();
-            } else {
-                bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-                updateBreathCycle();
-            }
-        }, 1000);
+        startTicking();
 
     } else if (type === 'minimalBreath') {
         wrapper.css({
@@ -638,6 +659,10 @@ function runAnchorIntervention(settings, onComplete) {
         let secondsLeft = duration;
         let elapsed = 0;
         let timerId;
+        // Event-driven focus tracking — more reliable than polling document.hasFocus()
+        // on mobile/touch devices where hasFocus() can return false for 100-500ms after
+        // the tab becomes active again.
+        let isTabActive = !document.hidden && document.hasFocus();
 
         let bubble = $(`
             <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 50px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
@@ -670,7 +695,7 @@ function runAnchorIntervention(settings, onComplete) {
             }
         }
 
-        function handleReset() {
+        function doReset() {
             elapsed = 0;
             secondsLeft = duration;
             bubble.find(".breath-timer").text(`${secondsLeft}s left`);
@@ -680,51 +705,69 @@ function runAnchorIntervention(settings, onComplete) {
                 "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
                 "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
             });
-            if (bubble[0]) {
-                bubble[0].offsetHeight;
-            }
+            if (bubble[0]) { bubble[0].offsetHeight; }
             setTimeout(updateBreathCycle, 150);
+        }
+
+        function startTicking() {
+            clearInterval(timerId);
+            timerId = setInterval(function() {
+                elapsed++;
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    clearInterval(timerId);
+                    cleanupListeners();
+                    wrapper.css({
+                        "background": "#18181b",
+                        "border": "1px solid #27272a",
+                        "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
+                        "padding": "32px 24px"
+                    });
+                    showDecisionScreen();
+                } else {
+                    bubble.find(".breath-timer").text(`${secondsLeft}s left`);
+                    updateBreathCycle();
+                }
+            }, 1000);
+        }
+
+        function handleFocusLost() {
+            if (!isTabActive) return; // already paused — ignore double-fires
+            isTabActive = false;
+            clearInterval(timerId);
+            doReset();
+        }
+
+        function handleFocusGained() {
+            if (isTabActive) return; // already running
+            if (document.hidden) return; // visibility hasn't resolved yet
+            isTabActive = true;
+            doReset(); // fresh start so the user sees a clean timer
+            startTicking();
         }
 
         function handleVisibilityChange() {
             if (document.hidden) {
-                handleReset();
+                handleFocusLost();
+            } else {
+                // Small delay so document.hasFocus() has time to settle on mobile
+                setTimeout(handleFocusGained, 150);
             }
         }
 
-        window.addEventListener('blur', handleReset);
+        window.addEventListener('blur', handleFocusLost);
+        window.addEventListener('focus', handleFocusGained);
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         function cleanupListeners() {
-            window.removeEventListener('blur', handleReset);
+            window.removeEventListener('blur', handleFocusLost);
+            window.removeEventListener('focus', handleFocusGained);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         }
         
         bubble.find(".breath-action").text("Inhale");
         setTimeout(updateBreathCycle, 150);
-        
-        timerId = setInterval(function() {
-            if (document.hidden || !document.hasFocus()) {
-                handleReset();
-                return;
-            }
-            elapsed++;
-            secondsLeft--;
-            if (secondsLeft <= 0) {
-                clearInterval(timerId);
-                cleanupListeners();
-                wrapper.css({
-                    "background": "#18181b",
-                    "border": "1px solid #27272a",
-                    "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
-                    "padding": "32px 24px"
-                });
-                showDecisionScreen();
-            } else {
-                bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-                updateBreathCycle();
-            }
-        }, 1000);
+        startTicking();
 
     } else if (type === 'typeRandomText') {
         wrapper.append('<div class="anchor-title">Solve the math problem to unlock</div>');
@@ -972,18 +1015,39 @@ function getAnchorNavigationType() {
     return 'navigate';
 }
 
-function requestStatusWithRetry(retriesLeft) {
-    console.log("Anchor: Sending status request. URL:", window.location.href, "Retries left:", retriesLeft);
+function requestStatusWithRetry(retriesLeft, navType) {
+    var currentUrl = window.location.href;
+
+    // If the URL hasn't resolved to a real page yet (e.g. about:blank on a freshly
+    // duplicated or new tab), wait a tick and retry rather than checking the wrong domain.
+    if (!currentUrl || !currentUrl.startsWith('http')) {
+        if (retriesLeft > 0) {
+            setTimeout(function() {
+                requestStatusWithRetry(retriesLeft - 1, navType);
+            }, 50);
+        } else {
+            removeHideStyle();
+        }
+        return;
+    }
+
+    console.log("Anchor: Sending status request. URL:", currentUrl, "Retries left:", retriesLeft);
     chrome.runtime.sendMessage({
         type: "status",
-        url: window.location.href,
-        navigationType: getAnchorNavigationType()
+        url: currentUrl,
+        navigationType: navType
     }, function(response) {
-        if (chrome.runtime.lastError) {
-            console.warn("Anchor: status check error:", chrome.runtime.lastError.message);
+        // In Firefox MV3 the service worker can silently return undefined with no
+        // lastError while it is still waking up — retry in that case too.
+        if (chrome.runtime.lastError || response === undefined) {
+            if (chrome.runtime.lastError) {
+                console.warn("Anchor: status check error:", chrome.runtime.lastError.message);
+            } else {
+                console.warn("Anchor: status response was undefined (service worker starting). Retrying...");
+            }
             if (retriesLeft > 0) {
                 setTimeout(function() {
-                    requestStatusWithRetry(retriesLeft - 1);
+                    requestStatusWithRetry(retriesLeft - 1, navType);
                 }, 100);
             } else {
                 console.error("Anchor: Failed to contact background script after multiple retries. Showing page.");
@@ -1034,5 +1098,7 @@ function requestStatusWithRetry(retriesLeft) {
     });
 }
 
-// Start with 15 retries (1.5 seconds)
-requestStatusWithRetry(15);
+// Capture navigation type once up front before the document mutates,
+// then start with up to 30 retries (spread over ~2 seconds).
+requestStatusWithRetry(30, getAnchorNavigationType());
+

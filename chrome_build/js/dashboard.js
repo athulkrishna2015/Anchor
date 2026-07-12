@@ -448,7 +448,19 @@ $(document).ready(function() {
             let isSinkingEnabled = overrides.sinkingEnabled !== undefined ? overrides.sinkingEnabled : true;
 
             $("#modal-override-anchor-enabled").prop("checked", isAnchorEnabled);
-            $("#modal-override-anchor-duration").val(durationVal);
+
+            // Populate duration: if not a preset value, select Custom and show input
+            const presets = ["2", "6", "12", "20"];
+            if (presets.includes(String(durationVal))) {
+                $("#modal-override-anchor-duration").val(durationVal);
+                $("#modal-override-anchor-duration-custom-wrap").hide();
+                $("#modal-override-anchor-duration-custom").val("");
+            } else {
+                $("#modal-override-anchor-duration").val("custom");
+                $("#modal-override-anchor-duration-custom").val(durationVal);
+                $("#modal-override-anchor-duration-custom-wrap").show();
+            }
+
             $("#modal-override-re-enabled").prop("checked", isReEnabled);
             $("#modal-override-re-interval").val(intervalVal);
             $("#modal-override-sinking-enabled").prop("checked", isSinkingEnabled);
@@ -461,6 +473,16 @@ $(document).ready(function() {
 
             $("#domain-modal").css("display", "flex");
         });
+    });
+
+    // Show/hide custom duration input when "Custom..." is selected
+    $("#modal-override-anchor-duration").change(function() {
+        if ($(this).val() === "custom") {
+            $("#modal-override-anchor-duration-custom-wrap").slideDown(200);
+            $("#modal-override-anchor-duration-custom").focus();
+        } else {
+            $("#modal-override-anchor-duration-custom-wrap").slideUp(200);
+        }
     });
 
     // Modal re-intervention slide toggle
@@ -487,7 +509,16 @@ $(document).ready(function() {
         chrome.storage.local.get([overrideKey], function(result) {
             let overrides = result[overrideKey] || {};
             overrides.anchorEnabled = $("#modal-override-anchor-enabled").is(":checked");
-            overrides.anchorDuration = parseInt($("#modal-override-anchor-duration").val()) || 6;
+
+            // Read custom duration if custom option is selected
+            const durationSelect = $("#modal-override-anchor-duration").val();
+            if (durationSelect === "custom") {
+                let customVal = parseInt($("#modal-override-anchor-duration-custom").val());
+                overrides.anchorDuration = (!isNaN(customVal) && customVal >= 21) ? Math.min(customVal, 300) : 30;
+            } else {
+                overrides.anchorDuration = parseInt(durationSelect) || 6;
+            }
+
             overrides.reInterventionEnabled = $("#modal-override-re-enabled").is(":checked");
             overrides.reInterventionInterval = parseInt($("#modal-override-re-interval").val()) || 15;
             overrides.sinkingEnabled = $("#modal-override-sinking-enabled").is(":checked");

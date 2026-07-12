@@ -1202,7 +1202,12 @@
                     <option value="6">Default (Medium (6s))</option>
                     <option value="12">Long (12s)</option>
                     <option value="20">Extra Long (20s)</option>
+                    <option value="custom">Custom...</option>
                 </select>
+                <div id="modal-override-anchor-duration-custom-wrap" style="display:none; margin-top:10px;">
+                    <input type="number" id="modal-override-anchor-duration-custom" min="21" max="300" placeholder="Enter seconds (21–300)" style="width:100%; padding:8px 10px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary); font-size:14px; box-sizing:border-box;">
+                    <span style="font-size:11px; color:var(--text-muted); margin-top:4px; display:block;">Enter a custom pause duration in seconds (21–300)</span>
+                </div>
             </div>
 
             <!-- Override 2: Show Intervention Enabled -->
