@@ -12,3 +12,4 @@ All notable changes to the Anchor extension will be documented in this file.
 - **Duplicated and New Tab Bypass**: Fixed a bug where duplicated tabs or tabs opened in a new tab bypassed the intervention.
 - **Tab-Specific Cooldowns**: Enforced that active bypass sessions and cooldowns are tab-specific, ensuring new tabs are always properly intervened.
 - **Mobile Breathing Timer & Animation Freeze**: Fixed a bug on touch and mobile devices where switching tab focus back and forth froze or failed to restart the breathing timer.
+- **High CPU Usage**: Throttled window scroll listener using `requestAnimationFrame` and cached DOM selections to prevent layout thrashing and high CPU usage.

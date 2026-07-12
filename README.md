@@ -99,6 +99,7 @@ The script reads the Chrome extension from `chrome_build/` and refreshes `firefo
 *   **Duplicated and New Tab Bypass Fix**: Fixed a bug where duplicated tabs or tabs opened in a new tab bypassed the intervention.
 *   **Tab-Specific Cooldowns**: Enforced that active bypass sessions and cooldowns are tab-specific, ensuring new tabs are always properly intervened.
 *   **Mobile Breathing Timer & Animation Freeze**: Fixed a bug on touch and mobile devices where switching tab focus back and forth froze or failed to restart the breathing timer.
+*   **High CPU Usage Scroll Optimization**: Throttled window scroll listener using `requestAnimationFrame` and cached DOM selections to prevent layout thrashing and high CPU usage.
 
 ### v2.0.1
 *   **Blocker First Load Bypass**: Fixed first load blocker bypass with status query retry loop and adjusted transition trigger delays.
