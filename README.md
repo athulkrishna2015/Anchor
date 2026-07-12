@@ -94,6 +94,17 @@ The script reads the Chrome extension from `chrome_build/` and refreshes `firefo
 ---
 
 ## Changelog
+### v2.1.0
+*   **Custom App-Specific Duration**: Added a "Custom..." option in the app settings customization modal, allowing you to set a custom mindfulness pause duration (from 21 to 300 seconds).
+*   **Duplicated and New Tab Bypass Fix**: Fixed a bug where duplicated tabs or tabs opened in a new tab bypassed the intervention.
+*   **Tab-Specific Cooldowns**: Enforced that active bypass sessions and cooldowns are tab-specific, ensuring new tabs are always properly intervened.
+*   **Mobile Breathing Timer & Animation Freeze**: Fixed a bug on touch and mobile devices where switching tab focus back and forth froze or failed to restart the breathing timer.
+
+### v2.0.1
+*   **Blocker First Load Bypass**: Fixed first load blocker bypass with status query retry loop and adjusted transition trigger delays.
+*   **Breathing Countdowns & Anti-Cheat**: Added breathing countdowns with anti-cheat reset and target load race condition fixes.
+*   **Mobile Reels Scroll Block**: Implemented mobile reels scroll block.
+
 ### v2.0.0
 *   **Favicon Integration**: Shows high-resolution website favicons instead of emojis in the websites breakdown list, details header, and mindful pause overlays.
 *   **Intervention Type Play Previews**: Clicking the play button beside any card triggers an inline interactive simulation of that specific exercise (Classic Breathing, Minimal Breathing, or Math Puzzles).
