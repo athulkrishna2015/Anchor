@@ -127,11 +127,12 @@ def sign_firefox(version_override=None):
         "bunx", "web-ext", "sign",
         "--channel", "listed",
         "--source-dir", FIREFOX_TEMP_BUILD_DIR,
-        "--artifacts-dir", "./web-ext-artifacts"
+        "--artifacts-dir", "./web-ext-artifacts",
+        "--approval-timeout", "0"
     ]
     sign_env = os.environ.copy()
-    sign_env["WEB_EXT_SIGN_API_KEY"] = issuer
-    sign_env["WEB_EXT_SIGN_API_SECRET"] = secret
+    sign_env["WEB_EXT_API_KEY"] = issuer
+    sign_env["WEB_EXT_API_SECRET"] = secret
 
     try:
         subprocess.run(cmd, check=True, env=sign_env)
