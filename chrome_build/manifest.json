@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Anchor",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "icons": {
       "128": "icon.png"
   },
@@ -10,7 +10,7 @@
       "matches": [
         "<all_urls>"
       ],
-      "js": ["jquery-3.2.1.js", "js/content.js"],
+      "js": ["js/core.js", "jquery-3.2.1.js", "js/content.js"],
       "css": ["main.css"],
       "run_at": "document_start"
     }

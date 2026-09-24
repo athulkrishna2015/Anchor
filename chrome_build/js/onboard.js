@@ -15,29 +15,36 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("mode-blocklist").addEventListener("click", function() {
         selectedMode = "blocklist";
         document.getElementById("mode-blocklist").classList.add("selected");
+        document.getElementById("mode-blocklist").setAttribute("aria-pressed", "true");
         document.getElementById("mode-allowlist").classList.remove("selected");
+        document.getElementById("mode-allowlist").setAttribute("aria-pressed", "false");
         updateUI();
     });
 
     document.getElementById("mode-allowlist").addEventListener("click", function() {
         selectedMode = "allowlist";
         document.getElementById("mode-allowlist").classList.add("selected");
+        document.getElementById("mode-allowlist").setAttribute("aria-pressed", "true");
         document.getElementById("mode-blocklist").classList.remove("selected");
+        document.getElementById("mode-blocklist").setAttribute("aria-pressed", "false");
         updateUI();
+    });
+
+    document.addEventListener("keydown", function(event) {
+        const target = event.target.closest("[role='button']");
+        if (target && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            target.click();
+        }
     });
 
     // Input handlers
     const domainInput = document.getElementById("domain-input");
     const addBtn = document.getElementById("btn-add-domain");
 
-    function addDomain(domain) {
-        domain = domain.trim().toLowerCase();
-        if (!domain) return;
-        // Strip protocols and www
-        if (domain.startsWith("http://")) domain = domain.substring(7);
-        if (domain.startsWith("https://")) domain = domain.substring(8);
-        if (domain.startsWith("www.")) domain = domain.substring(4);
-        
+    function addDomain(value) {
+        const domain = AnchorCore.normalizeDomain(value);
+
         if (domain && !domains.includes(domain)) {
             domains.push(domain);
             renderDomains();

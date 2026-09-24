@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Welcome to Anchor | Onboarding</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -316,6 +317,41 @@
             border-color: #64748b;
             box-shadow: none;
         }
+
+        [role='button']:focus-visible,
+        input:focus-visible,
+        .btn:focus-visible,
+        button:focus-visible {
+            outline: 2px solid #93c5fd;
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 600px) {
+            body, html {
+                align-items: flex-start;
+                padding: 12px;
+                box-sizing: border-box;
+            }
+            .onboarding-card {
+                padding: 24px 16px;
+                border-radius: 16px;
+            }
+            h1 {
+                font-size: 26px;
+            }
+            .mode-cards {
+                grid-template-columns: 1fr;
+            }
+            .input-area {
+                flex-wrap: wrap;
+            }
+            .input-area input {
+                min-width: 0;
+            }
+            .input-area .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -362,11 +398,11 @@
             <p class="description">Choose how Anchor checks pages and set up your initial target sites.</p>
             
             <div class="mode-cards">
-                <div class="mode-card" id="mode-blocklist">
+                <div class="mode-card" id="mode-blocklist" role="button" tabindex="0" aria-pressed="false">
                     <h3 class="mode-title">Blocklist Mode</h3>
                     <p class="mode-desc">Runs on all websites by default, except for excluded domains.</p>
                 </div>
-                <div class="mode-card selected" id="mode-allowlist">
+                <div class="mode-card selected" id="mode-allowlist" role="button" tabindex="0" aria-pressed="true">
                     <h3 class="mode-title">Allowlist Mode</h3>
                     <p class="mode-desc">Runs nowhere by default. Only runs on specified target websites. (Recommended)</p>
                 </div>
@@ -386,18 +422,19 @@
 
             <span class="suggestions-title">Quick Suggestions</span>
             <div class="suggestions-grid" id="suggestions-grid">
-                <div class="suggest-tag" data-domain="instagram.com">📷 Instagram</div>
-                <div class="suggest-tag" data-domain="youtube.com">📺 YouTube</div>
-                <div class="suggest-tag" data-domain="facebook.com">👥 Facebook</div>
-                <div class="suggest-tag" data-domain="tiktok.com">🎵 TikTok</div>
-                <div class="suggest-tag" data-domain="reddit.com">🤖 Reddit</div>
-                <div class="suggest-tag" data-domain="x.com">🐦 X / Twitter</div>
+                <div class="suggest-tag" data-domain="instagram.com" role="button" tabindex="0">📷 Instagram</div>
+                <div class="suggest-tag" data-domain="youtube.com" role="button" tabindex="0">📺 YouTube</div>
+                <div class="suggest-tag" data-domain="facebook.com" role="button" tabindex="0">👥 Facebook</div>
+                <div class="suggest-tag" data-domain="tiktok.com" role="button" tabindex="0">🎵 TikTok</div>
+                <div class="suggest-tag" data-domain="reddit.com" role="button" tabindex="0">🤖 Reddit</div>
+                <div class="suggest-tag" data-domain="x.com" role="button" tabindex="0">🐦 X / Twitter</div>
             </div>
 
             <button class="btn" id="btn-finish" disabled>Save & Open Dashboard</button>
         </div>
     </div>
 
+    <script src="js/core.js"></script>
     <script src="js/onboard.js"></script>
 </body>
 </html>

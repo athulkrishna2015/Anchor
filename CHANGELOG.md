@@ -2,6 +2,16 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.1] - 2026-09-24
+
+### Added
+- **Active-Page Timing**: Breath and timed re-intervention countdowns now consume only active-page time by default, pausing when the tab is hidden, unfocused, or the browser loses focus.
+- **Counting Mode Setting**: Added global and per-site choices for whether re-intervention time follows active-page time or wall-clock time.
+
+### Fixed
+- **X Short-Form Video Limit**: Fixed X/Twitter video detection, stable per-post counting, back-navigation handling, autoplay enforcement, and forward navigation blocking beyond the configured reel limit.
+- **Review Fixes**: Hardened domain/settings validation, session-backed tab bypasses, schedule handling, keyboard focus styles, responsive layouts, build signing, and cross-browser packaging.
+
 ## [2.1.0] - 2026-07-13
 
 ### Added

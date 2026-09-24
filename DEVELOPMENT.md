@@ -11,7 +11,7 @@ Anchor is a cross-browser extension compatible with Google Chrome (Manifest V3) 
 All browser extension files live in `chrome_build/`. This folder is the canonical unpacked Chrome extension and the source used to generate Firefox builds.
 
 Core JavaScript modules are located under `chrome_build/js/`:
-*   `chrome_build/js/background.js`: Manages service worker lifecycle, handles tab close signals, queries active schedules, and merges app-specific override parameters. Also handles fetching website favicons in the background to bypass host website CSP constraints.
+*   `chrome_build/js/background.js`: Manages service worker lifecycle, handles tab close signals, queries active schedules, and merges app-specific override parameters. Also provides the active tab's browser favicon URL without contacting a third-party favicon service.
 *   `chrome_build/js/content.js`: Injected into all web pages. Renders mindful pause overlays, renders the default timed visit slider, manages scrolling indicators (depth line/marker), and enforces reels limit locks.
 *   `chrome_build/js/dashboard.js`: Backing logic for the SPA options panel (`chrome_build/dashboard.html`). Handles interactive details views, trigger scopes, and saves setting overrides.
 *   `chrome_build/js/popup.js`: Controls the extension quick-toggle dropdown menu (`chrome_build/popup.html`).
@@ -33,7 +33,7 @@ Shared UI Assets:
 Because Firefox requires Manifest V3 background scripts to be declared as `scripts` arrays instead of `service_worker` blocks, you must use the build script to compile a Firefox-compatible folder first:
 1.  Generate the build directory:
     ```bash
-    python3 make_extension.py
+    uv run python make_extension.py
     ```
     This creates the `firefox_build/` folder containing the converted `manifest.json`.
 2.  Open your browser and navigate to `about:debugging`.
@@ -42,7 +42,7 @@ Because Firefox requires Manifest V3 background scripts to be declared as `scrip
 ### Automated Testing with Persistent Profile (Recommended)
 You can launch Zen Browser or Firefox from the terminal with the extension pre-loaded and session changes persisted (preventing the "first-time setup" welcome flow from appearing on every run):
 ```bash
-npx web-ext run --source-dir firefox_build --firefox /usr/bin/zen-browser --firefox-profile /mnt/0946E88701BE265B/portable/Extension/Anchor/zen-test-profile --profile-create-if-missing --keep-profile-changes
+bunx web-ext run --source-dir firefox_build --firefox /usr/bin/zen-browser --firefox-profile /mnt/0946E88701BE265B/portable/Extension/Anchor/zen-test-profile --profile-create-if-missing --keep-profile-changes
 ```
 
 ---
@@ -52,11 +52,12 @@ npx web-ext run --source-dir firefox_build --firefox /usr/bin/zen-browser --fire
 To build and package clean release zips/xpis for deployment to the Chrome Web Store and Mozilla Add-ons store, run the python compiler script in the root directory:
 
 ```bash
-python3 make_extension.py [version]
+uv run python make_extension.py [version]
 ```
 
 *   **Version Parameter (Optional)**: Provide a version string (e.g. `2.0.0`) to override the baseline version in `manifest.json`.
 *   **--clean Parameter (Optional)**: Add `--clean` flag to automatically delete old build files (`anchor_chrome_v*.zip` and `anchor_firefox_v*.xpi`) and keep only the latest generated files.
+*   **--sign Parameter (Optional)**: Add `--sign` to submit the Firefox build to AMO for listed-channel signing using `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` from `.env`.
 *   **Source Folder**: Reads extension files from `chrome_build/`.
 *   **Artifacts**: Generates `anchor_chrome_v[version]_[date].zip` and `anchor_firefox_v[version]_[date].xpi` in the root folder, and updates the `firefox_build/` unpacked directory.
 *   **Firefox Transform**: Copies `chrome_build/` into `firefox_build/` and writes a Firefox-compatible `manifest.json`.
@@ -65,9 +66,8 @@ python3 make_extension.py [version]
 
 ## Development Notes & Caveats
 
-### 1. Firefox Content Security Policy (CSP) Bypass
-Host websites can enforce strict CSP policies (like `img-src 'self'`) which block the content script from loading external favicon redirect services directly. 
-*   **Solution**: Content scripts must send a `{type: "fetchFavicon", domain: ...}` message to `background.js`. The background worker fetches the image blob and reads it as a Base64 Data URL, returning the raw data to the content script. This bypasses host CSP limits.
+### 1. Favicon CSP behavior
+Host websites can enforce strict CSP policies for images. The content script asks the background context for the browser-provided active-tab favicon URL and keeps a built-in globe fallback if the host blocks it.
 
 ### 2. Range Slider Clipping in Firefox
 Firefox automatically clips range input thumbs (`::-moz-range-thumb`) if the container `<input type="range">` height is smaller than the thumb itself (e.g. `6px` vs `24px`).
@@ -77,4 +77,4 @@ Firefox automatically clips range input thumbs (`::-moz-range-thumb`) if the con
 To keep the surface at `scrollTop = 0` completely clean, sea creatures start at `depthStart + window.innerHeight * 1.1`. This keeps them below the bottom fold when the page is opened, ensuring they only float up once active diving begins.
 
 ### 4. Timed Visit Slider and Re-Intervention Defaults
-The timed visit slider and re-intervention loop are enabled by default for all blocked websites. The Customize tab does not expose global toggles for these controls. `background.js` always reports `anchorBypassMode: "cooldown"` and defaults `reInterventionEnabled` to true, while `content.js` uses `reInterventionInterval` as the slider maximum.
+The timed visit slider and re-intervention loop are enabled by default for all blocked websites. The Customize tab exposes whether re-intervention time follows active-page time or wall-clock time; per-site overrides are available in the domain details modal. `background.js` always reports `anchorBypassMode: "cooldown"` and defaults `reInterventionEnabled` to true, while `content.js` uses `reInterventionInterval` as the slider maximum.

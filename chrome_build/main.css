@@ -1,9 +1,9 @@
-.anchor *{
+.anchor-extension *{
     pointer-events: none;
     font-family: "Helvetica", "Arial", sans-serif !important;
 }
 
-.anchor{
+.anchor-extension{
     position: absolute;
     top: 0;
     left: 0;
@@ -13,7 +13,7 @@
     pointer-events: none;
 }
 
-.anchor .creatures{
+.anchor-extension .creatures{
     position: absolute;
     width: 100%;
     z-index: 1000000001;
@@ -21,7 +21,7 @@
     left: 0;
 }
 
-.anchor .sea{
+.anchor-extension .sea{
     position: fixed;
     left: 0;
     top: 0;
@@ -34,14 +34,14 @@
     pointer-events: none;
 }
 
-.anchor .creature--wrapper{
+.anchor-extension .creature--wrapper{
     position: absolute;
     width: 100vw;
     left: 0;
     overflow: visible;
 }
 
-.anchor .creature{
+.anchor-extension .creature{
     position: relative;
     left: -10vw;
     top: 0;
@@ -50,32 +50,32 @@
     animation-timing-function: linear;
 }
 
-.anchor .fish{
+.anchor-extension .fish{
     animation-name: swim;
 }
 
-.anchor .fish2{
+.anchor-extension .fish2{
     animation-name: swim2;
 }
 
-.anchor .jelly{
+.anchor-extension .jelly{
     left: 0;
     animation-name: jelly;
     animation-timing-function: ease-in-out;
 }
 
-.anchor .jelly--wrapper{
+.anchor-extension .jelly--wrapper{
     overflow: visible;
 }
 
-.anchor .whale{
+.anchor-extension .whale{
     width: 60vw;
     left: -60vw;
     animation-name: swimwhale;
     animation-duration: 18s;
 }
 
-.anchor .rock{
+.anchor-extension .rock{
     position: absolute;
     transform: translate(0, -100%);
     width: 100vw;
@@ -87,7 +87,7 @@
     box-sizing: border-box;
 }
 
-.anchor .depth{
+.anchor-extension .depth{
     position: fixed;
     right: 0;
     top: 0;
@@ -99,7 +99,7 @@
     opacity: 0.5;
 }
 
-.anchor .depth--line{
+.anchor-extension .depth--line{
     width: 20px;
     height: 2px;
     position: relative;
@@ -107,7 +107,7 @@
     background: red;
 }
 
-.anchor .depth--marker{
+.anchor-extension .depth--marker{
     position: fixed;
     right: 0;
     top: 0;
@@ -119,7 +119,7 @@
     opacity: 0.5;
 }
 
-.anchor .marker{
+.anchor-extension .marker{
     position: absolute;
     width: 20px;
     height: 20px;
@@ -127,22 +127,25 @@
     border-radius: 50%;
 }
 
-.anchor .marker span{
+.anchor-extension .marker span{
     position: absolute;
     right: 150%;
     top: 50%;
     transform: translate(0, -50%);
 }
 
-html.anchor-at-bottom,
-body.anchor-at-bottom {
+html.anchor-extension-at-bottom,
+body.anchor-extension-at-bottom {
     overflow: hidden !important;
 }
 
-html.anchor-at-bottom,
-body.anchor-at-bottom,
-html.anchor-at-bottom *:not(.anchor):not(.anchor *):not(#anchor-overlay):not(#anchor-overlay *) {
-    touch-action: pan-down !important;
+html.anchor-extension-at-bottom,
+body.anchor-extension-at-bottom {
+    overscroll-behavior: none !important;
+}
+
+html.anchor-extension-at-bottom *:not(.anchor-extension):not(.anchor-extension *):not(#anchor-extension-overlay):not(#anchor-extension-overlay *) {
+    touch-action: pan-up !important;
 }
 
 @keyframes swim {
@@ -169,7 +172,7 @@ html.anchor-at-bottom *:not(.anchor):not(.anchor *):not(#anchor-overlay):not(#an
 /* ==========================================
    MINDFUL INTERVENTION STYLES
    ========================================== */
-#anchor-overlay {
+#anchor-extension-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -188,28 +191,28 @@ html.anchor-at-bottom *:not(.anchor):not(.anchor *):not(#anchor-overlay):not(#an
     box-sizing: border-box;
 }
 
-#anchor-overlay * {
+#anchor-extension-overlay * {
     pointer-events: auto !important;
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     box-sizing: border-box;
 }
 
-#anchor-overlay h1, 
-#anchor-overlay h2, 
-#anchor-overlay h3, 
-#anchor-overlay h4, 
-#anchor-overlay p {
+#anchor-extension-overlay h1,
+#anchor-extension-overlay h2,
+#anchor-extension-overlay h3,
+#anchor-extension-overlay h4,
+#anchor-extension-overlay p {
     line-height: 1.4 !important;
     margin-top: 0 !important;
     display: block !important;
 }
 
-body.anchor-active {
+body.anchor-extension-active {
     overflow: hidden !important;
     height: 100vh !important;
 }
 
-.anchor-wrapper {
+#anchor-extension-overlay .anchor-wrapper {
     max-width: 420px;
     width: 90%;
     text-align: center;
@@ -224,7 +227,7 @@ body.anchor-active {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-.anchor-title {
+#anchor-extension-overlay .anchor-title {
     font-size: 26px;
     font-weight: 700;
     margin-bottom: 8px;
@@ -232,7 +235,7 @@ body.anchor-active {
     letter-spacing: -0.5px;
 }
 
-.anchor-subtitle {
+#anchor-extension-overlay .anchor-subtitle {
     font-size: 15px;
     color: #a1a1aa; /* zinc-400 */
     margin-bottom: 25px;
@@ -240,7 +243,7 @@ body.anchor-active {
 }
 
 /* Breathing animation */
-.anchor-breath-circle {
+#anchor-extension-overlay .anchor-breath-circle {
     width: 140px;
     height: 140px;
     border-radius: 50%;
@@ -257,25 +260,25 @@ body.anchor-active {
     transform: scale(1.0);
 }
 
-.anchor-breath-circle.inhale {
+#anchor-extension-overlay .anchor-breath-circle.inhale {
     transform: scale(1.5);
     background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.75) 100%);
     box-shadow: 0 0 35px rgba(99, 102, 241, 0.5);
 }
 
-.anchor-breath-circle.hold {
+#anchor-extension-overlay .anchor-breath-circle.hold {
     transform: scale(1.5);
     background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.75) 100%);
     box-shadow: 0 0 35px rgba(99, 102, 241, 0.5);
 }
 
-.anchor-breath-circle.exhale {
+#anchor-extension-overlay .anchor-breath-circle.exhale {
     transform: scale(1.0);
     background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.6) 100%);
     box-shadow: 0 0 25px rgba(99, 102, 241, 0.3);
 }
 
-.anchor-timer {
+#anchor-extension-overlay .anchor-timer {
     font-size: 13px;
     margin-top: 10px;
     color: #71717a;
@@ -284,7 +287,7 @@ body.anchor-active {
 }
 
 /* Choices/Actions */
-.anchor-choices {
+#anchor-extension-overlay .anchor-choices {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -292,7 +295,7 @@ body.anchor-active {
     margin-top: 10px;
 }
 
-.anchor-btn {
+#anchor-extension-overlay .anchor-btn {
     padding: 12px 20px;
     border-radius: 9999px; /* pill shape */
     font-size: 15px;
@@ -306,37 +309,37 @@ body.anchor-active {
     display: block;
 }
 
-.anchor-btn-primary {
+#anchor-extension-overlay .anchor-btn-primary {
     background: #ef4444; /* red-500 */
     color: white;
 }
 
-.anchor-btn-primary:hover {
+#anchor-extension-overlay .anchor-btn-primary:hover {
     background: #dc2626;
 }
 
-.anchor-btn-secondary {
+#anchor-extension-overlay .anchor-btn-secondary {
     background: #27272a; /* zinc-800 */
     color: white;
 }
 
-.anchor-btn-secondary:hover {
+#anchor-extension-overlay .anchor-btn-secondary:hover {
     background: #3f3f46;
 }
 
-.anchor-btn:disabled {
+#anchor-extension-overlay .anchor-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
     transform: none !important;
 }
 
 /* Math Puzzle */
-.anchor-math-box {
+#anchor-extension-overlay .anchor-math-box {
     margin: 15px 0;
     width: 100%;
 }
 
-.anchor-math-eq {
+#anchor-extension-overlay .anchor-math-eq {
     font-size: 28px;
     font-weight: 800;
     letter-spacing: 1px;
@@ -344,7 +347,7 @@ body.anchor-active {
     color: #FAD304;
 }
 
-.anchor-math-input {
+#anchor-extension-overlay .anchor-math-input {
     width: 100%;
     padding: 12px;
     font-size: 18px;
@@ -355,19 +358,19 @@ body.anchor-active {
     text-align: center;
 }
 
-.anchor-math-input:focus {
+#anchor-extension-overlay .anchor-math-input:focus {
     border-color: #FAD304;
     outline: none;
     box-shadow: 0 0 10px rgba(250, 211, 4, 0.2);
 }
 
 /* Intention Tracker */
-.anchor-intention-box {
+#anchor-extension-overlay .anchor-intention-box {
     text-align: left;
     width: 100%;
 }
 
-.anchor-option-list {
+#anchor-extension-overlay .anchor-option-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -375,7 +378,7 @@ body.anchor-active {
     width: 100%;
 }
 
-.anchor-option-item {
+#anchor-extension-overlay .anchor-option-item {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
@@ -389,25 +392,25 @@ body.anchor-active {
     color: #e2e8f0;
 }
 
-.anchor-option-item:hover {
+#anchor-extension-overlay .anchor-option-item:hover {
     background: rgba(255, 255, 255, 0.08);
     color: white;
 }
 
-.anchor-option-item.selected {
+#anchor-extension-overlay .anchor-option-item.selected {
     background: rgba(250, 211, 4, 0.12);
     border-color: #FAD304;
     color: #ffffff;
     font-weight: 600;
 }
 
-.anchor-option-item input[type="radio"] {
+#anchor-extension-overlay .anchor-option-item input[type="radio"] {
     margin: 0;
     cursor: pointer;
     accent-color: #FAD304;
 }
 
-.anchor-warning {
+#anchor-extension-overlay .anchor-warning {
     color: #feb2b2;
     font-size: 13px;
     margin-top: 10px;
@@ -418,7 +421,7 @@ body.anchor-active {
 }
 
 /* Alternatives */
-.anchor-alt-list {
+#anchor-extension-overlay .anchor-alt-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -426,7 +429,7 @@ body.anchor-active {
     width: 100%;
 }
 
-.anchor-alt-item {
+#anchor-extension-overlay .anchor-alt-item {
     background: rgba(66, 153, 225, 0.08);
     border: 1px solid rgba(66, 153, 225, 0.2);
     border-radius: 10px;

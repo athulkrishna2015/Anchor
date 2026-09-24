@@ -1,8 +1,8 @@
-// Synchronously insert stylesheet to hide document element and prevent page content flashing
 (function() {
     let style = document.createElement('style');
-    style.id = 'anchor-hide-style';
-    style.innerHTML = 'html { display: none !important; }';
+    style.id = 'anchor-extension-hide-style';
+    style.dataset.anchorExtension = 'hide';
+    style.textContent = 'html { display: none !important; }';
     if (document.documentElement) {
         document.documentElement.appendChild(style);
     } else {
@@ -17,24 +17,26 @@
 })();
 
 function removeHideStyle() {
-    let hideStyle = document.getElementById('anchor-hide-style');
-    if (hideStyle) {
-        hideStyle.remove();
-    }
+    let hideStyle = document.getElementById('anchor-extension-hide-style');
+    if (hideStyle) hideStyle.remove();
 }
 
 function runWhenBodyExists(callback) {
     if (document.body) {
         callback();
-    } else {
-        let observer = new MutationObserver(function() {
-            if (document.body) {
-                observer.disconnect();
-                callback();
-            }
-        });
-        observer.observe(document.documentElement, { childList: true });
+        return;
     }
+    let observer = new MutationObserver(function() {
+        if (document.body) {
+            observer.disconnect();
+            callback();
+        }
+    });
+    observer.observe(document.documentElement || document, { childList: true, subtree: true });
+    window.setTimeout(function() {
+        observer.disconnect();
+        removeHideStyle();
+    }, 5000);
 }
 
 var depthBottomMeters = 10; //Depth in meters
@@ -52,17 +54,139 @@ var depthStart;
 var currentScrollLoop = 1;
 var globalSettings = null;
 var visitedReels = [];
+var reInterventionTimer = null;
+var blockerCleanup = null;
+var routePollId = null;
+var reelObserver = null;
+var reelMutationObserver = null;
+var reelEnforcementId = null;
+var activeXVideoKey = "";
 
 function checkReelMode() {
-    var url = window.location.href;
-    return url.includes('youtube.com/shorts') || 
-           url.includes('tiktok.com') || 
-           url.includes('instagram.com/reel');
+    return AnchorCore.isReelUrl(window.location.href);
+}
+
+function isXReelPage() {
+    return AnchorCore.normalizeDomain(window.location.hostname) === "x.com";
+}
+
+function stopXReelMonitoring() {
+    if (reelObserver) reelObserver.disconnect();
+    if (reelMutationObserver) reelMutationObserver.disconnect();
+    if (reelEnforcementId !== null) window.clearInterval(reelEnforcementId);
+    reelObserver = null;
+    reelMutationObserver = null;
+    reelEnforcementId = null;
+}
+
+function stopBlocker() {
+    stopXReelMonitoring();
+    if (routePollId !== null) window.clearInterval(routePollId);
+    routePollId = null;
+    if (blockerCleanup) blockerCleanup();
+    blockerCleanup = null;
+    $(window).off("scroll.anchorExtension");
+    document.documentElement.classList.remove("anchor-extension-at-bottom");
+    $("body").removeClass("anchor-extension-at-bottom");
+    releaseReelLimitPauses();
+    $(".anchor-extension").remove();
+    $("#anchor-extension-blocker").remove();
+}
+
+function releaseReelLimitPauses() {
+    document.querySelectorAll("video[data-anchor-limit-paused='true']").forEach(function(video) {
+        delete video.dataset.anchorLimitPaused;
+        if (!video.ended) {
+            try {
+                const playPromise = video.play();
+                if (playPromise && playPromise.catch) playPromise.catch(function() {});
+            } catch (error) {}
+        }
+    });
+}
+
+function enforceReelLimit() {
+    if (!isReelMode || reelsWatched < reelLimit) {
+        releaseReelLimitPauses();
+        return;
+    }
+    document.documentElement.classList.add("anchor-extension-at-bottom");
+    if (isXReelPage()) {
+        const activeVideo = getActiveXVideo();
+        const key = activeVideo && AnchorCore.getReelVideoKey(activeVideo);
+        if (!activeVideo || !key || visitedReels.indexOf(key) < reelLimit) {
+            releaseReelLimitPauses();
+            return;
+        }
+        activeVideo.dataset.anchorLimitPaused = "true";
+        activeVideo.pause();
+        return;
+    }
+    if (reelsWatched <= reelLimit) return;
+    document.querySelectorAll("video").forEach(function(video) {
+        if (!video.paused) {
+            video.dataset.anchorLimitPaused = "true";
+            video.pause();
+        }
+    });
+}
+
+function getActiveXVideo() {
+    const videos = Array.from(document.querySelectorAll('article[data-testid="tweet"] [data-testid="videoPlayer"] video, article[data-testid="tweet"] [data-testid="videoComponent"] video, article[role="article"] [data-testid="videoPlayer"] video, article[role="article"] [data-testid="videoComponent"] video'));
+    const viewportCenter = window.innerHeight / 2;
+    let active = null;
+    let activeDistance = Infinity;
+    videos.forEach(function(video) {
+        const rect = video.getBoundingClientRect();
+        if (video.ended || (video.paused && video.dataset.anchorLimitPaused !== "true")) return;
+        if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.width === 0 || rect.height === 0) return;
+        const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
+        if (distance < activeDistance) {
+            active = video;
+            activeDistance = distance;
+        }
+    });
+    return active;
+}
+
+function scanActiveXVideo() {
+    if (!isReelMode || !isXReelPage()) return;
+    const video = getActiveXVideo();
+    if (!video) return;
+    const key = AnchorCore.getReelVideoKey(video);
+    if (key && key !== activeXVideoKey) {
+        activeXVideoKey = key;
+        visitedReels = AnchorCore.updateReelHistory(visitedReels, key);
+        reelsWatched = visitedReels.length;
+        updateReelsUI();
+    }
+    enforceReelLimit();
+}
+
+function trackXVideos() {
+    if (!isReelMode || !isXReelPage() || !document.body) return;
+    const videos = document.querySelectorAll('article[data-testid="tweet"] [data-testid="videoPlayer"] video, article[data-testid="tweet"] [data-testid="videoComponent"] video, article[role="article"] [data-testid="videoPlayer"] video, article[role="article"] [data-testid="videoComponent"] video');
+    videos.forEach(function(video) {
+        if (reelObserver) reelObserver.observe(video);
+    });
+    scanActiveXVideo();
+}
+
+function startXReelMonitoring() {
+    stopXReelMonitoring();
+    if (!isReelMode || !isXReelPage()) return;
+    activeXVideoKey = "";
+    reelObserver = new IntersectionObserver(scanActiveXVideo, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    reelMutationObserver = new MutationObserver(trackXVideos);
+    reelMutationObserver.observe(document.body, { childList: true, subtree: true });
+    trackXVideos();
+    reelEnforcementId = window.setInterval(scanActiveXVideo, 500);
 }
 
 var init = function(){
+    stopBlocker();
 
-	if ('scrollRestoration' in history) {
+    if ('scrollRestoration' in history) {
 		history.scrollRestoration = 'manual';
 	}
 	window.scrollTo(0, 0);
@@ -83,31 +207,32 @@ var init = function(){
 	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
 
 	// Create elements
-	$("html").append('<div class="anchor"></div>');
-	$(".anchor").append('<div class="creatures"></div>');
-	$(".anchor").append('<div class="sea"></div>');
+	$("html").append('<div class="anchor-extension"></div>');
+	$(".anchor-extension").append('<div class="creatures"></div>');
+	$(".anchor-extension").append('<div class="sea"></div>');
 
 	let showIndicator = globalSettings && globalSettings.showDepthIndicator !== false;
 	if (showIndicator) {
-		$(".anchor").append('<div class="depth"><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div></div>');
-		$(".anchor").append('<div class="depth--marker"><div class="marker"><span>0m</span></div></div>');
+		$(".anchor-extension").append('<div class="depth"><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div><div class="depth--line"></div></div>');
+		$(".anchor-extension").append('<div class="depth--marker"><div class="marker"><span>0m</span></div></div>');
 	}
 
 	loadCreatures();
 
 	isReelMode = checkReelMode();
 	if (isReelMode) {
-		visitedReels = [window.location.href];
+		visitedReels = isXReelPage() ? [] : [window.location.href];
+		reelsWatched = isXReelPage() ? 0 : 1;
 	}
 
     function attachScrollListener() {
         var ticking = false;
         var $window = $(window);
-        var $anchor = $(".anchor");
+        var $anchor = $(".anchor-extension");
         var $sea = $(".sea");
         var $marker = $(".marker");
 
-        $window.off('scroll').scroll(function(e){
+        $window.off('scroll.anchorExtension').on('scroll.anchorExtension', function(e){
             if (!ticking) {
                 window.requestAnimationFrame(function() {
                     var s = $window.scrollTop();
@@ -163,96 +288,112 @@ var init = function(){
         });
     }
 
-    // Block downward scrolling using capture phase when limit is reached
-    $("body").append('<div id="anchor-blocker" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999999999;background:transparent;pointer-events:none;"></div>');
-    
-    const stopEvent = (e) => { 
+    $("body").append('<div id="anchor-extension-blocker" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999999999;background:transparent;pointer-events:none;"></div>');
+
+    function stopEvent(event) {
         let shouldBlock = false;
         if (isReelMode) {
             shouldBlock = reelsWatched >= reelLimit;
-        } else {
-            // Only block scroll if not in scroll-based re-intervention mode
-            if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
-                shouldBlock = false;
-            } else {
-                var s = $(window).scrollTop();
-                shouldBlock = s >= depthBottomPixel;
-            }
+        } else if (!globalSettings || !globalSettings.reInterventionEnabled || globalSettings.reInterventionMode !== 'scroll') {
+            shouldBlock = $(window).scrollTop() >= depthBottomPixel;
         }
-
         if (shouldBlock) {
-            document.documentElement.classList.add('anchor-at-bottom');
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            e.stopImmediatePropagation(); 
+            document.documentElement.classList.add('anchor-extension-at-bottom');
+            enforceReelLimit();
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
         }
-    };
-    
-    window.addEventListener('wheel', function(e) {
-        if (e.deltaY > 0) {
-            stopEvent(e);
-        } else {
-            document.documentElement.classList.remove('anchor-at-bottom');
-        }
-    }, {passive:false, capture:true});
-    
+    }
+
     let lastTouchY = 0;
-    window.addEventListener('touchstart', function(e) {
-        lastTouchY = e.touches[0].clientY;
-    }, {passive:true, capture:true});
-    
-    window.addEventListener('touchmove', function(e) {
-        let currentY = e.touches[0].clientY;
-        if (lastTouchY > currentY) {
-            stopEvent(e);
-        } else {
-            document.documentElement.classList.remove('anchor-at-bottom');
+    let lastScrollTop = window.scrollY;
+    let restoringScroll = false;
+    function handleScroll() {
+        const currentScrollTop = window.scrollY;
+        if (isReelMode && reelsWatched >= reelLimit && currentScrollTop > lastScrollTop && !restoringScroll) {
+            restoringScroll = true;
+            window.scrollTo(0, lastScrollTop);
+            restoringScroll = false;
+            return;
         }
+        lastScrollTop = currentScrollTop;
+    }
+    function handleWheel(event) {
+        if (event.deltaY > 0) stopEvent(event);
+        else document.documentElement.classList.remove('anchor-extension-at-bottom');
+    }
+    function handleTouchStart(event) {
+        lastTouchY = event.touches[0].clientY;
+    }
+    function handleTouchMove(event) {
+        const currentY = event.touches[0].clientY;
+        if (lastTouchY > currentY) stopEvent(event);
+        else document.documentElement.classList.remove('anchor-extension-at-bottom');
         lastTouchY = currentY;
-    }, {passive:false, capture:true});
-    
-    window.addEventListener('keydown', function(e){
-        if(["ArrowDown","Space","PageDown"].indexOf(e.code) > -1) {
-            stopEvent(e);
-        } else if (["ArrowUp","PageUp","Home"].indexOf(e.code) > -1) {
-            document.documentElement.classList.remove('anchor-at-bottom');
-        }
-    }, {passive:false, capture:true});
+    }
+    function handleKeyDown(event) {
+        if (["ArrowDown", "Space", "PageDown"].includes(event.code)) stopEvent(event);
+        else if (["ArrowUp", "PageUp", "Home"].includes(event.code)) document.documentElement.classList.remove('anchor-extension-at-bottom');
+        else if (isReelMode && reelsWatched >= reelLimit && event.key === "Enter" && event.target && event.target.closest('a[href*="/status/"]')) stopEvent(event);
+    }
+    function handleReelLinkPointer(event) {
+        if (isReelMode && reelsWatched >= reelLimit && event.target && event.target.closest('a[href*="/status/"]')) stopEvent(event);
+    }
+
+    window.addEventListener('wheel', handleWheel, {passive: false, capture: true});
+    window.addEventListener('touchstart', handleTouchStart, {passive: true, capture: true});
+    window.addEventListener('touchmove', handleTouchMove, {passive: false, capture: true});
+    window.addEventListener('keydown', handleKeyDown, {passive: false, capture: true});
+    window.addEventListener('pointerdown', handleReelLinkPointer, {passive: false, capture: true});
+    window.addEventListener('scroll', handleScroll, {passive: true, capture: true});
+    blockerCleanup = function() {
+        window.removeEventListener('wheel', handleWheel, {capture: true});
+        window.removeEventListener('touchstart', handleTouchStart, {capture: true});
+        window.removeEventListener('touchmove', handleTouchMove, {capture: true});
+        window.removeEventListener('keydown', handleKeyDown, {capture: true});
+        window.removeEventListener('pointerdown', handleReelLinkPointer, {capture: true});
+        window.removeEventListener('scroll', handleScroll, {capture: true});
+    };
 
     if (isReelMode) {
         updateReelsUI();
+        startXReelMonitoring();
     } else {
         attachScrollListener();
     }
 
-    // Continuously poll for URL changes to handle SPA navigation
-    setInterval(function() {
-        if (window.location.href !== lastUrl) {
-            var wasReelMode = isReelMode;
-            lastUrl = window.location.href;
-            isReelMode = checkReelMode();
+    routePollId = window.setInterval(function() {
+        if (window.location.href === lastUrl) {
+            if (isReelMode && isXReelPage()) scanActiveXVideo();
+            return;
+        }
+        const wasReelMode = isReelMode;
+        const wasXReel = isXReelPage();
+        lastUrl = window.location.href;
+        isReelMode = checkReelMode();
+        const isXReel = isXReelPage();
 
-            if (isReelMode && wasReelMode) {
-                if (visitedReels.length > 1 && window.location.href === visitedReels[visitedReels.length - 2]) {
-                    visitedReels.pop();
-                    reelsWatched--;
-                    if (reelsWatched < 0) reelsWatched = 0;
-                } else {
-                    visitedReels.push(window.location.href);
-                    reelsWatched++;
-                }
-                updateReelsUI();
-            } else if (isReelMode && !wasReelMode) {
-                $(window).off('scroll');
-                visitedReels = [window.location.href];
-                reelsWatched = 0;
-                updateReelsUI();
-            } else if (!isReelMode && wasReelMode) {
-                $(".sea").css({"opacity": 0});
-                $(".marker span").text("0m");
-                visitedReels = [];
-                attachScrollListener();
-            }
+        if (isReelMode && wasReelMode && isXReel && wasXReel) {
+            scanActiveXVideo();
+        } else if (isReelMode && wasReelMode) {
+            visitedReels = AnchorCore.updateReelHistory(visitedReels, window.location.href);
+            reelsWatched = visitedReels.length;
+            updateReelsUI();
+        } else if (isReelMode && !wasReelMode) {
+            $(window).off('scroll.anchorExtension');
+            visitedReels = isXReel ? [] : [window.location.href];
+            reelsWatched = isXReel ? 0 : 1;
+            updateReelsUI();
+            startXReelMonitoring();
+        } else if (!isReelMode && wasReelMode) {
+            stopXReelMonitoring();
+            $(".sea").css({"opacity": 0});
+            $(".marker span").text("0m");
+            visitedReels = [];
+            reelsWatched = 0;
+            document.documentElement.classList.remove('anchor-extension-at-bottom');
+            attachScrollListener();
         }
     }, 500);
 
@@ -284,14 +425,17 @@ function updateReelsUI() {
     } else {
         $(".sea").css({"opacity": 0.99});
         if($(".rock").length == 0){
-            $(".anchor").append('<svg class="rock" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,937.037871 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
+            $(".anchor-extension").append('<svg class="rock" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,937.037871 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
         }
         $(".rock").css({"top": (window.innerHeight - 200) + "px"});
     }
 
     if (reelsWatched < reelLimit) {
-        document.documentElement.classList.remove('anchor-at-bottom');
-        $("body").removeClass('anchor-at-bottom');
+        document.documentElement.classList.remove('anchor-extension-at-bottom');
+        $("body").removeClass('anchor-extension-at-bottom');
+        releaseReelLimitPauses();
+    } else {
+        enforceReelLimit();
     }
 }
 
@@ -326,10 +470,10 @@ function loadCreatures(){
 }
 
 function runAnchorIntervention(settings, onComplete) {
-    if ($("#anchor-overlay").length > 0) return;
+    if ($("#anchor-extension-overlay").length > 0) return;
 
     let type = settings.anchorType;
-    let duration = settings.anchorDuration;
+    let duration = Math.min(300, Math.max(1, Number(settings.anchorDuration) || 5));
     let phrase = settings.anchorPhrase;
     let textLength = settings.anchorTextLength;
     let textComplexity = settings.anchorTextComplexity;
@@ -339,33 +483,24 @@ function runAnchorIntervention(settings, onComplete) {
     let rawAlts = settings.anchorAlternativesList || '';
     let showIntentionWarning = settings.anchorIntentionWarning === undefined ? true : settings.anchorIntentionWarning;
 
-    let siteName = window.location.hostname;
-    if (siteName.startsWith("www.")) {
-        siteName = siteName.substring(4);
-    } else if (siteName.startsWith("m.")) {
-        siteName = siteName.substring(2);
-    }
+    let siteName = AnchorCore.normalizeDomain(window.location.hostname) || window.location.hostname;
 
-    let overlay = $('<div id="anchor-overlay"></div>');
+    let overlay = $('<div id="anchor-extension-overlay" role="dialog" aria-modal="true" aria-label="Anchor intervention" tabindex="-1"></div>');
     let wrapper = $('<div class="anchor-wrapper"></div>');
     overlay.append(wrapper);
     $("body").append(overlay);
-    $("body").addClass("anchor-active");
+    $("body").addClass("anchor-extension-active");
     removeHideStyle();
 
     function prependFavicon() {
-        let uniqueId = "fav-" + Math.random().toString(36).substr(2, 9);
-        wrapper.append(`
-            <div id="${uniqueId}" class="anchor-favicon-placeholder" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; background:#27272a; border:1px solid #3f3f46; font-size:24px; font-weight:700; color:#cbd5e1;">
-                🌐
-            </div>
-        `);
-        
+        const uniqueId = "anchor-fav-" + Math.random().toString(36).slice(2, 11);
+        const placeholder = $('<div class="anchor-favicon-placeholder" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; background:#27272a; border:1px solid #3f3f46; font-size:24px; font-weight:700; color:#cbd5e1;">🌐</div>').attr("id", uniqueId);
+        wrapper.append(placeholder);
         chrome.runtime.sendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
-            if (response && response.dataUrl) {
-                let img = $(`<img class="anchor-favicon" src="${response.dataUrl}" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />`);
-                $(`#${uniqueId}`).replaceWith(img);
-            }
+            if (chrome.runtime.lastError || !response || !response.dataUrl) return;
+            const image = $('<img class="anchor-favicon" alt="" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />').attr("src", response.dataUrl);
+            image.on("error", function() { $("#" + uniqueId).replaceWith(placeholder); });
+            $("#" + uniqueId).replaceWith(image);
         });
     }
 
@@ -396,8 +531,15 @@ function runAnchorIntervention(settings, onComplete) {
             showCooldownDecisionScreen();
         } else {
             logAttempt('opened');
-            chrome.runtime.sendMessage({type: "bypassSuccess"}, function(response) {
-                $("body").removeClass("anchor-active");
+            clearReInterventionState(reInterventionStorageKey(settings));
+            chrome.runtime.sendMessage({
+                type: "bypassSuccess",
+                url: window.location.href,
+                configuredDomain: settings.configuredDomain,
+                reInterventionCountMode: settings.reInterventionCountMode
+            }, function(response) {
+                if (chrome.runtime.lastError || !response || !response.success) return;
+                $("body").removeClass("anchor-extension-active");
                 overlay.css("opacity", "0");
                 setTimeout(function() {
                     overlay.remove();
@@ -493,12 +635,16 @@ function runAnchorIntervention(settings, onComplete) {
             // The visit window and the next check-in use the same selected duration.
             settings.anchorBypassTime = selectedMins;
             settings.reInterventionInterval = selectedMins;
-            
+            clearReInterventionState(reInterventionStorageKey(settings));
             chrome.runtime.sendMessage({
-                type: "bypassSuccessCustom", 
-                durationMinutes: selectedMins
+                type: "bypassSuccessCustom",
+                url: window.location.href,
+                durationMinutes: selectedMins,
+                configuredDomain: settings.configuredDomain,
+                reInterventionCountMode: settings.reInterventionCountMode
             }, function(response) {
-                $("body").removeClass("anchor-active");
+                if (chrome.runtime.lastError || !response || !response.success) return;
+                $("body").removeClass("anchor-extension-active");
                 overlay.css("opacity", "0");
                 setTimeout(function() {
                     overlay.remove();
@@ -526,8 +672,7 @@ function runAnchorIntervention(settings, onComplete) {
 
     prependFavicon();
 
-    if (type === 'basicBreath') {
-        // Full screen typography layout for breathing
+    if (type === 'basicBreath' || type === 'minimalBreath') {
         wrapper.css({
             "background": "transparent",
             "border": "none",
@@ -535,252 +680,55 @@ function runAnchorIntervention(settings, onComplete) {
             "backdrop-filter": "none"
         });
 
-        let instructionText = $(`<h1 style="font-size:24px; font-weight:600; color:#cbd5e1; font-family:'Outfit', sans-serif; text-align:center; margin-bottom: 20px;">${phrase}</h1>`);
-        wrapper.append(instructionText);
-
-        let secondsLeft = duration;
-        let elapsed = 0;
-        let timerId;
-        // Event-driven focus tracking — more reliable than polling document.hasFocus()
-        // on mobile/touch devices where hasFocus() can return false for 100-500ms after
-        // the tab becomes active again.
-        let isTabActive = !document.hidden && document.hasFocus();
+        if (type === 'basicBreath') {
+            wrapper.append(
+                $('<h1 style="font-size:24px; font-weight:600; color:#cbd5e1; font-family:\'Outfit\', sans-serif; text-align:center; margin-bottom:20px;"></h1>').text(phrase)
+            );
+        }
 
         let bubble = $(`
-            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 30px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
-                <span class="breath-action" style="font-size: 20px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Breathe</span>
-                <span class="breath-timer" style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-top: 4px; display: block;">${secondsLeft}s left</span>
+            <div class="breath-bubble" style="width:140px; height:140px; border-radius:50%; background:radial-gradient(circle, rgba(99,102,241,0.1) 0%, rgba(6,182,212,0.4) 100%); border:2px solid rgba(6,182,212,0.6); box-shadow:0 0 30px rgba(6,182,212,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; margin:${type === 'basicBreath' ? '30' : '50'}px auto; transition:transform 3.8s ease-in-out,box-shadow 3.8s ease-in-out,background 3.8s ease-in-out; transform:scale(1.35); pointer-events:none;">
+                <span class="breath-action" aria-live="polite" style="font-size:20px; font-weight:700; color:#ffffff; text-shadow:0 1px 4px rgba(0,0,0,0.5);">Inhale</span>
+                <span class="breath-timer" style="font-size:14px; font-weight:500; color:rgba(255,255,255,0.6); margin-top:4px; display:block;">${duration}s left</span>
             </div>
         `);
         wrapper.append(bubble);
-        
-        let statsLabel = $('<div style="font-size: 14px; color: #71717a; text-align:center; margin-top:20px;">Loading stats...</div>');
-        wrapper.append(statsLabel);
 
-        let count = settings.attemptsCount24h || 0;
-        if (count > 0) {
-            statsLabel.text(`Attempts to open ${siteName} in last 24h: ${count}`);
-        } else {
-            statsLabel.text(`First attempt to open ${siteName} today`);
-        }
-        
-        function updateBreathCycle() {
-            let phase = elapsed % 8;
-            if (phase < 4) {
-                if (phase === 0 || bubble.find(".breath-action").text().indexOf("Inhale") === -1) {
-                    bubble.css({
-                        "transform": "scale(1.35)",
-                        "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
-                        "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
-                      });
-                }
-                bubble.find(".breath-action").text("Inhale");
-            } else {
-                if (phase === 4 || bubble.find(".breath-action").text().indexOf("Exhale") === -1) {
-                    bubble.css({
-                        "transform": "scale(0.9)",
-                        "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
-                        "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
-                    });
-                }
-                bubble.find(".breath-action").text("Exhale");
-            }
+        if (type === 'basicBreath') {
+            const count = settings.attemptsCount24h || 0;
+            const statsLabel = $('<div style="font-size:14px; color:#71717a; text-align:center; margin-top:20px;"></div>').text(
+                count > 0
+                    ? `Attempts to open ${siteName} in last 24h: ${count}`
+                    : `First attempt to open ${siteName} today`
+            );
+            wrapper.append(statsLabel);
         }
 
-        function doReset() {
-            elapsed = 0;
-            secondsLeft = duration;
+        const totalMs = duration * 1000;
+        AnchorCore.createActiveCountdown(totalMs, function(secondsLeft, remainingMs) {
+            const elapsedSeconds = Math.floor((totalMs - remainingMs) / 1000);
+            const phase = elapsedSeconds % 8;
+            const inhaling = phase < 4;
+            bubble.find(".breath-action").text(inhaling ? "Inhale" : "Exhale");
             bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-            bubble.find(".breath-action").text("Inhale");
             bubble.css({
-                "transform": "scale(0.9)",
-                "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
-                "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
+                "transform": inhaling ? "scale(1.35)" : "scale(0.9)",
+                "box-shadow": inhaling
+                    ? "0 0 45px rgba(6, 182, 212, 0.6)"
+                    : "0 0 15px rgba(6, 182, 212, 0.1)",
+                "background": inhaling
+                    ? "radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
+                    : "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(6, 182, 212, 0.25) 100%)"
             });
-            if (bubble[0]) { bubble[0].offsetHeight; }
-            setTimeout(updateBreathCycle, 150);
-        }
-
-        function startTicking() {
-            clearInterval(timerId);
-            timerId = setInterval(function() {
-                elapsed++;
-                secondsLeft--;
-                if (secondsLeft <= 0) {
-                    clearInterval(timerId);
-                    cleanupListeners();
-                    wrapper.css({
-                        "background": "#18181b",
-                        "border": "1px solid #27272a",
-                        "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
-                        "padding": "32px 24px"
-                    });
-                    showDecisionScreen();
-                } else {
-                    bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-                    updateBreathCycle();
-                }
-            }, 1000);
-        }
-
-        function handleFocusLost() {
-            if (!isTabActive) return; // already paused — ignore double-fires
-            isTabActive = false;
-            clearInterval(timerId);
-            doReset();
-        }
-
-        function handleFocusGained() {
-            if (isTabActive) return; // already running
-            if (document.hidden) return; // visibility hasn't resolved yet
-            isTabActive = true;
-            doReset(); // fresh start so the user sees a clean timer
-            startTicking();
-        }
-
-        function handleVisibilityChange() {
-            if (document.hidden) {
-                handleFocusLost();
-            } else {
-                // Small delay so document.hasFocus() has time to settle on mobile
-                setTimeout(handleFocusGained, 150);
-            }
-        }
-
-        window.addEventListener('blur', handleFocusLost);
-        window.addEventListener('focus', handleFocusGained);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        function cleanupListeners() {
-            window.removeEventListener('blur', handleFocusLost);
-            window.removeEventListener('focus', handleFocusGained);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        }
-        
-        bubble.find(".breath-action").text("Inhale");
-        setTimeout(updateBreathCycle, 150);
-        startTicking();
-
-    } else if (type === 'minimalBreath') {
-        wrapper.css({
-            "background": "transparent",
-            "border": "none",
-            "box-shadow": "none",
-            "backdrop-filter": "none"
-        });
-
-        let secondsLeft = duration;
-        let elapsed = 0;
-        let timerId;
-        // Event-driven focus tracking — more reliable than polling document.hasFocus()
-        // on mobile/touch devices where hasFocus() can return false for 100-500ms after
-        // the tab becomes active again.
-        let isTabActive = !document.hidden && document.hasFocus();
-
-        let bubble = $(`
-            <div class="breath-bubble" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%); border: 2px solid rgba(6, 182, 212, 0.6); box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 50px auto; transition: transform 3.8s ease-in-out, box-shadow 3.8s ease-in-out, background 3.8s ease-in-out; transform: scale(0.9); pointer-events: none;">
-                <span class="breath-action" style="font-size: 20px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Breathe</span>
-                <span class="breath-timer" style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-top: 4px; display: block;">${secondsLeft}s left</span>
-            </div>
-        `);
-        wrapper.append(bubble);
-        
-        function updateBreathCycle() {
-            let phase = elapsed % 8;
-            if (phase < 4) {
-                if (phase === 0 || bubble.find(".breath-action").text().indexOf("Inhale") === -1) {
-                    bubble.css({
-                        "transform": "scale(1.35)",
-                        "box-shadow": "0 0 45px rgba(6, 182, 212, 0.6)",
-                        "background": "radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.6) 100%)"
-                    });
-                }
-                bubble.find(".breath-action").text("Inhale");
-            } else {
-                if (phase === 4 || bubble.find(".breath-action").text().indexOf("Exhale") === -1) {
-                    bubble.css({
-                        "transform": "scale(0.9)",
-                        "box-shadow": "0 0 15px rgba(6, 182, 212, 0.1)",
-                        "background": "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.25) 100%)"
-                    });
-                }
-                bubble.find(".breath-action").text("Exhale");
-            }
-        }
-
-        function doReset() {
-            elapsed = 0;
-            secondsLeft = duration;
-            bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-            bubble.find(".breath-action").text("Inhale");
-            bubble.css({
-                "transform": "scale(0.9)",
-                "box-shadow": "0 0 30px rgba(6, 182, 212, 0.3)",
-                "background": "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.4) 100%)"
+        }, function() {
+            wrapper.css({
+                "background": "#18181b",
+                "border": "1px solid #27272a",
+                "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
+                "padding": "32px 24px"
             });
-            if (bubble[0]) { bubble[0].offsetHeight; }
-            setTimeout(updateBreathCycle, 150);
-        }
-
-        function startTicking() {
-            clearInterval(timerId);
-            timerId = setInterval(function() {
-                elapsed++;
-                secondsLeft--;
-                if (secondsLeft <= 0) {
-                    clearInterval(timerId);
-                    cleanupListeners();
-                    wrapper.css({
-                        "background": "#18181b",
-                        "border": "1px solid #27272a",
-                        "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.5)",
-                        "padding": "32px 24px"
-                    });
-                    showDecisionScreen();
-                } else {
-                    bubble.find(".breath-timer").text(`${secondsLeft}s left`);
-                    updateBreathCycle();
-                }
-            }, 1000);
-        }
-
-        function handleFocusLost() {
-            if (!isTabActive) return; // already paused — ignore double-fires
-            isTabActive = false;
-            clearInterval(timerId);
-            doReset();
-        }
-
-        function handleFocusGained() {
-            if (isTabActive) return; // already running
-            if (document.hidden) return; // visibility hasn't resolved yet
-            isTabActive = true;
-            doReset(); // fresh start so the user sees a clean timer
-            startTicking();
-        }
-
-        function handleVisibilityChange() {
-            if (document.hidden) {
-                handleFocusLost();
-            } else {
-                // Small delay so document.hasFocus() has time to settle on mobile
-                setTimeout(handleFocusGained, 150);
-            }
-        }
-
-        window.addEventListener('blur', handleFocusLost);
-        window.addEventListener('focus', handleFocusGained);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        function cleanupListeners() {
-            window.removeEventListener('blur', handleFocusLost);
-            window.removeEventListener('focus', handleFocusGained);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        }
-        
-        bubble.find(".breath-action").text("Inhale");
-        setTimeout(updateBreathCycle, 150);
-        startTicking();
+            showDecisionScreen();
+        }, { document: document, window: window, performance: performance });
 
     } else if (type === 'typeRandomText') {
         wrapper.append('<div class="anchor-title">Solve the math problem to unlock</div>');
@@ -928,91 +876,177 @@ function runAnchorIntervention(settings, onComplete) {
     }
 }
 
-function runReIntervention(settings) {
-    $(".anchor").remove();
-    $("#anchor-overlay").remove();
+function reInterventionStorageKey(settings) {
+    const domain = AnchorCore.normalizeDomain(settings.configuredDomain || window.location.hostname);
+    return "anchor.reIntervention." + domain;
+}
 
-    let siteName = window.location.hostname;
-    if (siteName.startsWith("www.")) {
-        siteName = siteName.substring(4);
-    } else if (siteName.startsWith("m.")) {
-        siteName = siteName.substring(2);
+function readReInterventionState(key) {
+    try {
+        const value = JSON.parse(sessionStorage.getItem(key));
+        return value && typeof value === "object" ? value : null;
+    } catch (error) {
+        return null;
     }
+}
 
-    let overlay = $('<div id="anchor-overlay" style="background:#18181b;"></div>');
-    let wrapper = $('<div class="anchor-re-wrapper" style="text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;"></div>');
-    
-    let uniqueId = "fav-" + Math.random().toString(36).substr(2, 9);
-    wrapper.append(`
-        <div id="${uniqueId}" class="anchor-favicon-placeholder" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; background:#27272a; border:1px solid #3f3f46; font-size:24px; font-weight:700; color:#cbd5e1;">
-            🌐
-        </div>
-    `);
-    
+function writeReInterventionState(key, state) {
+    try {
+        sessionStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {}
+}
+
+function clearReInterventionState(key) {
+    try {
+        sessionStorage.removeItem(key);
+    } catch (error) {}
+}
+
+function clearReInterventionTimer() {
+    if (reInterventionTimer) reInterventionTimer.stop();
+    reInterventionTimer = null;
+}
+
+function runReIntervention(settings) {
+    if ($("#anchor-extension-overlay").length || !$("body").length) return;
+    clearReInterventionTimer();
+    stopBlocker();
+    const storageKey = reInterventionStorageKey(settings);
+    const siteName = AnchorCore.normalizeDomain(window.location.hostname) || window.location.hostname;
+    const overlay = $('<div id="anchor-extension-overlay" role="dialog" aria-modal="true" aria-label="Anchor re-intervention" tabindex="-1" style="background:#18181b;"></div>');
+    const wrapper = $('<div class="anchor-re-wrapper" style="text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;"></div>');
+    const uniqueId = "anchor-fav-" + Math.random().toString(36).slice(2, 11);
+    const placeholder = $('<div class="anchor-favicon-placeholder" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; background:#27272a; border:1px solid #3f3f46; font-size:24px; font-weight:700; color:#cbd5e1;">🌐</div>').attr("id", uniqueId);
+    wrapper.append(placeholder);
     chrome.runtime.sendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
+        if (chrome.runtime.lastError) return;
         if (response && response.dataUrl) {
-            let img = $(`<img class="anchor-favicon" src="${response.dataUrl}" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />`);
-            $(`#${uniqueId}`).replaceWith(img);
+            const image = $('<img class="anchor-favicon" alt="" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />').attr("src", response.dataUrl);
+            image.on("error", function() { $("#" + uniqueId).replaceWith(placeholder); });
+            $("#" + uniqueId).replaceWith(image);
         }
     });
-
+    wrapper.append($('<svg class="anchor-hourglass" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:24px; animation:flip 4s infinite ease-in-out;" aria-hidden="true"><path d="M5 2h14"></path><path d="M5 22h14"></path><path d="M19 2v4c0 3.3-2.7 6-6 6s-6-2.7-6-6V2"></path><path d="M5 22v-4c0-3.3 2.7-6 6-6s6 2.7 6 6v4"></path></svg>'));
+    const capitalizedDomain = siteName.split(".")[0].charAt(0).toUpperCase() + siteName.split(".")[0].slice(1);
+    wrapper.append($('<h2 class="anchor-re-title" style="font-size:32px; font-weight:700; color:#ffffff; margin-bottom:12px; font-family:\'Outfit\', sans-serif;"></h2>').text("Do you still need " + capitalizedDomain + "?"));
+    wrapper.append($('<p class="anchor-re-subtitle" style="font-size:16px; color:#a1a1aa; margin-bottom:48px; max-width:400px; line-height:1.5; font-family:\'Outfit\', sans-serif;"></p>').text("You’ll need to go through another intervention to unlock " + capitalizedDomain + " again."));
+    const closeBtn = $('<button class="anchor-btn" style="background:#6366f1; color:white; border:none; padding:14px 48px; border-radius:9999px; font-size:16px; font-weight:600; cursor:pointer; outline:none; transition:background 0.2s; margin-bottom:24px; width:100%; max-width:200px; font-family:\'Outfit\', sans-serif;">Close</button>');
+    const interventionBtn = $('<button style="background:transparent; border:none; color:#a1a1aa; font-size:14px; font-weight:600; cursor:pointer; outline:none; padding:12px; font-family:\'Outfit\', sans-serif;">Intervention</button>');
+    wrapper.append(closeBtn).append(interventionBtn);
     overlay.append(wrapper);
-    $("body").append(overlay);
-    $("body").addClass("anchor-active");
+    $("body").append(overlay).addClass("anchor-extension-active");
 
     function handleCancel() {
+        clearReInterventionState(storageKey);
         chrome.runtime.sendMessage({type: "logAttempt", action: "saved"}, function() {
             chrome.runtime.sendMessage({type: "closeTab"});
         });
     }
 
-    // Add hourglass SVG with flip animation
-    wrapper.append(`
-        <svg class="anchor-hourglass" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 24px; animation: flip 4s infinite ease-in-out;">
-            <path d="M5 2h14"></path>
-            <path d="M5 22h14"></path>
-            <path d="M19 2v4c0 3.3-2.7 6-6 6s-6-2.7-6-6V2"></path>
-            <path d="M5 22v-4c0-3.3 2.7-6 6-6s6 2.7 6 6v4"></path>
-        </svg>
-    `);
-
-    // Title
-    let capitalizedDomain = siteName.split('.')[0];
-    capitalizedDomain = capitalizedDomain.charAt(0).toUpperCase() + capitalizedDomain.slice(1);
-    wrapper.append(`<h2 class="anchor-re-title" style="font-size:32px; font-weight:700; color:#ffffff; margin-bottom:12px; font-family:'Outfit', sans-serif;">Do you still need ${capitalizedDomain}?</h2>`);
-    wrapper.append(`<p class="anchor-re-subtitle" style="font-size:16px; color:#a1a1aa; margin-bottom:48px; max-width:400px; line-height:1.5; font-family:'Outfit', sans-serif;">You’ll need to go through another intervention to unlock ${capitalizedDomain} again.</p>`);
-
-    let closeBtn = $('<button class="anchor-btn" style="background:#6366f1; color:white; border:none; padding:14px 48px; border-radius:9999px; font-size:16px; font-weight:600; cursor:pointer; outline:none; transition:background 0.2s; margin-bottom:24px; width: 100%; max-width: 200px; font-family:\'Outfit\', sans-serif;">Close</button>');
-    let interventionBtn = $('<button style="background:transparent; border:none; color:#71717a; font-size:14px; font-weight:600; cursor:pointer; outline:none; font-family:\'Outfit\', sans-serif;">Intervention</button>');
-    
-    wrapper.append(closeBtn).append(interventionBtn);
-
-    closeBtn.click(handleCancel);
-    interventionBtn.click(function() {
+    closeBtn.on("click", handleCancel);
+    interventionBtn.on("click", function() {
         overlay.remove();
-        $("body").removeClass("anchor-active");
-        
-        let reSettings = { ...settings };
-        if (settings.reInterventionType && settings.reInterventionType !== 'same') {
+        $("body").removeClass("anchor-extension-active");
+        const reSettings = { ...settings };
+        if (settings.reInterventionType && settings.reInterventionType !== "same") {
             reSettings.anchorType = settings.reInterventionType;
         }
-        
         runAnchorIntervention(reSettings, function() {
-            init();
+            if (settings.sinkingEnabled !== false) init();
             startReInterventionTimer(reSettings);
         });
     });
 }
 
 function startReInterventionTimer(settings) {
-    if (settings.reInterventionEnabled && settings.reInterventionMode === 'time') {
-        let intervalMs = settings.reInterventionInterval * 60 * 1000;
-        setTimeout(function() {
-            if ($("body").length > 0 && !$("body").hasClass("anchor-active")) {
-                runReIntervention(settings);
-            }
-        }, intervalMs);
+    clearReInterventionTimer();
+    const storageKey = reInterventionStorageKey(settings);
+    if (!settings.reInterventionEnabled || settings.anchorEnabled === false || settings.reInterventionMode !== "time") {
+        clearReInterventionState(storageKey);
+        return;
     }
+
+    const countMode = settings.reInterventionCountMode === "wallClock" ? "wallClock" : "active";
+    const intervalMs = Math.max(1, Number(settings.reInterventionInterval) || 10) * 60 * 1000;
+    const stored = readReInterventionState(storageKey);
+    const now = Date.now();
+    let remainingMs = intervalMs;
+    let deadline = now + intervalMs;
+
+    if (stored && stored.countMode === countMode) {
+        remainingMs = Math.max(0, Number(stored.remainingMs) || 0);
+        deadline = Number(stored.deadline) || now + remainingMs;
+    } else if (Number.isFinite(settings.activeCooldownRemainingMs)) {
+        remainingMs = Math.max(0, settings.activeCooldownRemainingMs);
+        deadline = now + remainingMs;
+    }
+
+    function finish() {
+        clearReInterventionTimer();
+        clearReInterventionState(storageKey);
+        if ($("body").length && !$("body").hasClass("anchor-extension-active")) runReIntervention(settings);
+    }
+
+    if (countMode === "wallClock") {
+        let timeoutId = null;
+        function schedule() {
+            window.clearTimeout(timeoutId);
+            const delay = Math.max(0, deadline - Date.now());
+            timeoutId = window.setTimeout(finish, delay);
+        }
+        function stop() {
+            window.clearTimeout(timeoutId);
+            window.removeEventListener("focus", schedule);
+            window.removeEventListener("pageshow", schedule);
+            document.removeEventListener("visibilitychange", schedule);
+        }
+        window.addEventListener("focus", schedule);
+        window.addEventListener("pageshow", schedule);
+        document.addEventListener("visibilitychange", schedule);
+        reInterventionTimer = { stop: stop };
+        writeReInterventionState(storageKey, {
+            countMode: countMode,
+            remainingMs: Math.max(0, deadline - Date.now()),
+            deadline: deadline
+        });
+        if (deadline <= Date.now()) finish();
+        else schedule();
+        return;
+    }
+
+    let controller = null;
+    let lastSavedAt = 0;
+    function persist() {
+        if (!controller) return;
+        writeReInterventionState(storageKey, {
+            countMode: countMode,
+            remainingMs: controller.getRemainingMs(),
+            deadline: 0
+        });
+    }
+    function handleHidden() {
+        if (document.hidden) persist();
+    }
+    controller = AnchorCore.createActiveCountdown(Math.max(1, remainingMs), function(secondsLeft, currentRemainingMs) {
+        if (Date.now() - lastSavedAt >= 2000) {
+            lastSavedAt = Date.now();
+            writeReInterventionState(storageKey, {
+                countMode: countMode,
+                remainingMs: currentRemainingMs,
+                deadline: 0
+            });
+        }
+    }, finish, { document: document, window: window, performance: performance });
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", handleHidden);
+    reInterventionTimer = {
+        stop: function() {
+            persist();
+            controller.stop();
+            window.removeEventListener("pagehide", persist);
+            document.removeEventListener("visibilitychange", handleHidden);
+        }
+    };
 }
 
 function getAnchorNavigationType() {
@@ -1044,7 +1078,6 @@ function requestStatusWithRetry(retriesLeft, navType) {
         return;
     }
 
-    console.log("Anchor: Sending status request. URL:", currentUrl, "Retries left:", retriesLeft);
     chrome.runtime.sendMessage({
         type: "status",
         url: currentUrl,
@@ -1069,7 +1102,11 @@ function requestStatusWithRetry(retriesLeft, navType) {
             return;
         }
 
-        console.log("Anchor: Status response received:", response);
+        if (window.location.href !== currentUrl) {
+            requestStatusWithRetry(retriesLeft, navType);
+            return;
+        }
+
         if (response && response.status == 1) {
             globalSettings = response;
             if (response.customDepth) depthBottomMeters = response.customDepth;
@@ -1080,7 +1117,6 @@ function requestStatusWithRetry(retriesLeft, navType) {
             
             // If this page is not a blocked target website, do absolutely nothing
             if (!response.isTarget) {
-                console.log("Anchor: Page is not a targeted block domain. Showing page.");
                 removeHideStyle();
                 return;
             }
@@ -1089,7 +1125,6 @@ function requestStatusWithRetry(retriesLeft, navType) {
             let sinkingEnabled = response.sinkingEnabled !== false;
             
             runWhenBodyExists(function() {
-                console.log("Anchor: Body exists, checking exclusion. isExcluded:", response.isExcluded, "anchorEnabled:", anchorEnabled);
                 if (!response.isExcluded && anchorEnabled) {
                     runAnchorIntervention(response, function() {
                         if (sinkingEnabled) init();
@@ -1099,19 +1134,36 @@ function requestStatusWithRetry(retriesLeft, navType) {
                     if (sinkingEnabled) init();
                     startReInterventionTimer(response);
                     removeHideStyle();
+                } else if (response.activeCooldownRemainingMs !== null && response.activeCooldownRemainingMs !== undefined) {
+                    if (sinkingEnabled) init();
+                    startReInterventionTimer(response);
+                    removeHideStyle();
                 } else {
-                    console.log("Anchor: Page is excluded (cooldown or schedule). Showing page.");
                     removeHideStyle();
                 }
             });
         } else {
-            console.log("Anchor: Extension is disabled or invalid response status. Showing page.");
             removeHideStyle();
         }
     });
 }
 
-// Capture navigation type once up front before the document mutates,
-// then start with up to 30 retries (spread over ~2 seconds).
+if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function(changes, areaName) {
+        if (areaName !== "local") return;
+        if (changes.reelLimit) {
+            reelLimit = Math.min(500, Math.max(1, Number(changes.reelLimit.newValue) || 10));
+        }
+        if (changes.reelBuffer) {
+            reelBuffer = Math.min(100, Math.max(0, Number(changes.reelBuffer.newValue) || 0));
+        }
+        if (isReelMode) updateReelsUI();
+        if (changes.reInterventionCountMode && globalSettings && !globalSettings.reInterventionCountModeOverridden) {
+            globalSettings.reInterventionCountMode = changes.reInterventionCountMode.newValue === "wallClock" ? "wallClock" : "active";
+            if (reInterventionTimer) startReInterventionTimer(globalSettings);
+        }
+    });
+}
+
 requestStatusWithRetry(30, getAnchorNavigationType());
 

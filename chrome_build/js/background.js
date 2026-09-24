@@ -1,383 +1,311 @@
-var bypassedTabs = {};
+if (typeof importScripts === "function") importScripts("core.js");
+
+const SESSION_PREFIX = "anchorBypass_";
+
+function numberInRange(value, fallback, minimum, maximum) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+}
+
+function domainFromUrl(value) {
+    try {
+        const url = new URL(value);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+        return AnchorCore.normalizeDomain(url.hostname);
+    } catch (error) {
+        return "";
+    }
+}
+
+function sessionKey(tabId) {
+    return SESSION_PREFIX + tabId;
+}
+
+function findMatchingDomain(host, domains, result) {
+    for (const value of domains || []) {
+        const domain = AnchorCore.normalizeDomain(value);
+        if (!domain || !AnchorCore.hostMatchesDomain(host, domain, false)) continue;
+        const settings = result["domainSettings_" + domain] || {};
+        if (AnchorCore.hostMatchesDomain(host, domain, settings.scope === "exact")) return domain;
+    }
+    return "";
+}
+
+function findOverrideDomain(host, result) {
+    const domains = Object.keys(result)
+        .filter(function(key) { return key.startsWith("domainSettings_"); })
+        .map(function(key) { return key.slice("domainSettings_".length); })
+        .sort(function(left, right) { return right.length - left.length; });
+    return findMatchingDomain(host, domains, result);
+}
+
+function isWithinSchedule(result) {
+    if (result.scheduleEnabled !== true) return true;
+    const days = Array.isArray(result.scheduleDays)
+        ? result.scheduleDays.map(Number)
+        : [1, 2, 3, 4, 5];
+    const now = new Date();
+    if (!days.includes(now.getDay())) return false;
+    const startParts = String(result.scheduleStart || "09:00").split(":");
+    const endParts = String(result.scheduleEnd || "17:00").split(":");
+    const start = Number(startParts[0]) * 60 + Number(startParts[1]);
+    const end = Number(endParts[0]) * 60 + Number(endParts[1]);
+    const current = now.getHours() * 60 + now.getMinutes();
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return true;
+    return start <= end ? current >= start && current <= end : current >= start || current <= end;
+}
+
+function sessionMatches(record, host, configuredDomain) {
+    if (!record || !Number.isFinite(record.expiresAt)) return false;
+    if (record.configuredDomain) {
+        return configuredDomain && AnchorCore.hostMatchesDomain(
+            configuredDomain,
+            record.configuredDomain,
+            false
+        );
+    }
+    return AnchorCore.hostMatchesDomain(host, record.domain, true);
+}
+
+function storeBypass(request, sender, sendResponse, fallbackDuration) {
+    if (!sender.tab) {
+        sendResponse({ success: false });
+        return false;
+    }
+    const host = domainFromUrl(request.url || sender.tab.url);
+    if (!host) {
+        sendResponse({ success: false });
+        return false;
+    }
+    const durationMinutes = numberInRange(
+        request.durationMinutes,
+        numberInRange(fallbackDuration, 5, 1, 1440),
+        1,
+        1440
+    );
+    const record = {
+        domain: host,
+        configuredDomain: AnchorCore.normalizeDomain(request.configuredDomain),
+        countMode: request.reInterventionCountMode === "wallClock" ? "wallClock" : "active",
+        expiresAt: Date.now() + durationMinutes * 60 * 1000
+    };
+    chrome.storage.session.set({ [sessionKey(sender.tab.id)]: record }, function() {
+        sendResponse({ success: true, expiresAt: record.expiresAt });
+    });
+    return true;
+}
+
+function sendStatus(request, sender, sendResponse) {
+    const checkUrl = request.url || (sender.tab && sender.tab.url) || "";
+    const host = domainFromUrl(checkUrl);
+    const key = sender.tab ? sessionKey(sender.tab.id) : "";
+
+    chrome.storage.session.get(key ? [key] : [], function(sessionResult) {
+        chrome.storage.local.get(null, function(result) {
+            const currentStatus = result.status === undefined ? 1 : result.status;
+            const mode = result.operatingMode || "allowlist";
+            const excludedDomain = mode === "blocklist"
+                ? findMatchingDomain(host, result.exclusions, result)
+                : "";
+            const isTarget = Boolean(host) && (mode === "blocklist" ? !excludedDomain : Boolean(findMatchingDomain(host, result.allowlist, result)));
+            const configuredDomain = mode === "allowlist"
+                ? findMatchingDomain(host, result.allowlist, result)
+                : isTarget ? findOverrideDomain(host, result) : "";
+            const overrides = configuredDomain ? result["domainSettings_" + configuredDomain] || {} : {};
+            const now = Date.now();
+            const record = key ? sessionResult[key] : null;
+            const withinSchedule = isWithinSchedule(result);
+            const hasActiveBypass = Boolean(key && sessionMatches(record, host, configuredDomain) && record.expiresAt > now);
+            const usableBypass = hasActiveBypass && withinSchedule;
+            const activeCooldownRemainingMs = usableBypass ? Math.max(0, record.expiresAt - now) : null;
+
+            if (key && record && record.expiresAt <= now) chrome.storage.session.remove(key);
+
+            const reInterventionEnabled = overrides.reInterventionEnabled !== undefined
+                ? Boolean(overrides.reInterventionEnabled)
+                : result.reInterventionEnabled !== false;
+            const reInterventionInterval = numberInRange(
+                overrides.reInterventionInterval !== undefined
+                    ? overrides.reInterventionInterval
+                    : result.reInterventionInterval,
+                10,
+                1,
+                1440
+            );
+            const reInterventionCountMode = (overrides.reInterventionCountMode !== undefined
+                ? overrides.reInterventionCountMode
+                : result.reInterventionCountMode) === "wallClock"
+                ? "wallClock"
+                : "active";
+            const attemptsLog = Array.isArray(result.anchor_attempts_log) ? result.anchor_attempts_log : [];
+            const dayMs = 24 * 60 * 60 * 1000;
+            const siteAttempts = attemptsLog.filter(function(entry) {
+                return AnchorCore.normalizeDomain(entry.host) === host && now - entry.timestamp <= dayMs;
+            });
+            const isExcluded = !isTarget || usableBypass || !withinSchedule;
+
+            sendResponse({
+                status: currentStatus,
+                isExcluded: isExcluded,
+                isTarget: isTarget,
+                configuredDomain: configuredDomain,
+                domain: host,
+                activeCooldownRemainingMs: activeCooldownRemainingMs,
+                activeCooldownRemainingMinutes: activeCooldownRemainingMs === null
+                    ? null
+                    : Math.max(1, Math.ceil(activeCooldownRemainingMs / 60000)),
+                attemptsCount24h: siteAttempts.length,
+                customDepth: numberInRange(result.customDepth, 10, 1, 1000),
+                cpuSetting: ["high", "low", "none"].includes(result.cpuSetting) ? result.cpuSetting : "high",
+                reelLimit: numberInRange(result.reelLimit, 10, 1, 500),
+                scrollBuffer: numberInRange(result.scrollBuffer, 2, 0, 100),
+                reelBuffer: numberInRange(result.reelBuffer, 2, 0, 100),
+                anchorEnabled: overrides.anchorEnabled !== undefined
+                    ? Boolean(overrides.anchorEnabled)
+                    : result.anchorEnabled !== false,
+                anchorType: result.anchorType || "basicBreath",
+                anchorDuration: numberInRange(overrides.anchorDuration ?? result.anchorDuration, 5, 1, 300),
+                anchorPhrase: result.anchorPhrase || "Take a deep breath...",
+                anchorTextLength: result.anchorTextLength || "short",
+                anchorTextComplexity: result.anchorTextComplexity || "lowercase",
+                closeTabOnLeave: result.closeTabOnLeave !== false,
+                anchorMathComplexity: result.anchorMathComplexity || "medium",
+                anchorAlternativesList: result.anchorAlternativesList || "",
+                anchorIntentionWarning: result.anchorIntentionWarning !== false,
+                anchorBypassMode: "cooldown",
+                anchorBypassTime: numberInRange(result.anchorBypassTime, 5, 1, 1440),
+                reInterventionEnabled: reInterventionEnabled,
+                reInterventionInterval: reInterventionInterval,
+                reInterventionMode: result.reInterventionMode === "scroll" ? "scroll" : "time",
+                reInterventionCountModeOverridden: overrides.reInterventionCountMode !== undefined,
+                reInterventionScrollMult: numberInRange(result.reInterventionScrollMult, 1, 0.1, 100),
+                reInterventionType: result.reInterventionType || "same",
+                reInterventionCountMode: usableBypass && record.countMode
+                    ? record.countMode
+                    : reInterventionCountMode,
+                sinkingEnabled: overrides.sinkingEnabled !== false,
+                showDepthIndicator: result.showDepthIndicator !== false
+            });
+        });
+    });
+    return true;
+}
+
+function logAttempt(request, sender, sendResponse) {
+    const host = domainFromUrl(sender.tab && sender.tab.url);
+    if (!host) {
+        sendResponse({ success: false });
+        return false;
+    }
+    chrome.storage.local.get([
+        "anchor_attempts_log",
+        "anchor_stats_total",
+        "anchor_stats_saved",
+        "anchor_stats_opened"
+    ], function(result) {
+        const log = Array.isArray(result.anchor_attempts_log) ? result.anchor_attempts_log : [];
+        log.push({ timestamp: Date.now(), host: host, action: request.action === "saved" ? "saved" : "opened" });
+        const trimmedLog = log.slice(-1000);
+        const update = {
+            anchor_attempts_log: trimmedLog,
+            anchor_stats_total: numberInRange(result.anchor_stats_total, 0, 0, Number.MAX_SAFE_INTEGER) + 1,
+            anchor_stats_opened: numberInRange(result.anchor_stats_opened, 0, 0, Number.MAX_SAFE_INTEGER) + 1
+        };
+        if (request.action === "saved") {
+            update.anchor_stats_saved = numberInRange(result.anchor_stats_saved, 0, 0, Number.MAX_SAFE_INTEGER) + 1;
+        }
+        chrome.storage.local.set(update, function() {
+            sendResponse({ success: true });
+        });
+    });
+    return true;
+}
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
-    delete bypassedTabs[tabId];
+    chrome.storage.session.remove(sessionKey(tabId));
 });
 
-chrome.runtime.onMessage.addListener(
-  function(request, sender, sendResponse) {
-    if (request.type === "fetchFavicon") {
-        let domain = request.domain;
-        let url = `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
-        fetch(url)
-            .then(response => response.blob())
-            .then(blob => {
-                let reader = new FileReader();
-                reader.onloadend = function() {
-                    sendResponse({dataUrl: reader.result});
-                }
-                reader.readAsDataURL(blob);
-            })
-            .catch(err => {
-                sendResponse({error: err.toString()});
-            });
-        return true; // Keep channel open for async response
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.type === "fetchFavicon" && sender.tab) {
+        chrome.tabs.get(sender.tab.id, function(tab) {
+            if (chrome.runtime.lastError) {
+                sendResponse({});
+                return;
+            }
+            sendResponse({ dataUrl: tab && tab.favIconUrl ? tab.favIconUrl : "" });
+        });
+        return true;
     }
 
     if (request.type === "closeTab" && sender.tab) {
-      chrome.tabs.remove(sender.tab.id);
-      sendResponse({ success: true });
-      return;
-    }
-    
-    if (request.type === "bypassSuccess" && sender.tab) {
-        let tabId = sender.tab.id;
-        bypassedTabs[tabId] = true;
-        
-        let url;
-        try {
-            url = new URL(sender.tab.url);
-            let domain = url.hostname;
-            if (domain.startsWith("www.")) domain = domain.substring(4);
-            
-            chrome.storage.local.get(['anchorBypassTime'], function(result) {
-                let mode = 'cooldown';
-                let time = result.anchorBypassTime || 5;
-                if (mode === 'cooldown') {
-                    let key = "cooldown_" + domain;
-                    let expiry = Date.now() + time * 60 * 1000;
-                    chrome.storage.local.set({ [key]: expiry });
-                }
-            });
-        } catch(e) {}
-        
+        chrome.tabs.remove(sender.tab.id);
         sendResponse({ success: true });
+        return false;
+    }
+
+    if (request.type === "bypassSuccess" && sender.tab) {
+        chrome.storage.local.get(["anchorBypassTime"], function(result) {
+            storeBypass(request, sender, sendResponse, result.anchorBypassTime);
+        });
         return true;
     }
 
     if (request.type === "bypassSuccessCustom" && sender.tab) {
-        let tabId = sender.tab.id;
-        bypassedTabs[tabId] = true;
-        let durationMinutes = request.durationMinutes || 5;
-        
-        try {
-            let url = new URL(sender.tab.url);
-            let domain = url.hostname;
-            if (domain.startsWith("www.")) domain = domain.substring(4);
-            
-            let key = "cooldown_" + domain;
-            let expiry = Date.now() + durationMinutes * 60 * 1000;
-            chrome.storage.local.set({ [key]: expiry });
-        } catch(e) {}
-        
-        sendResponse({ success: true });
+        storeBypass(request, sender, sendResponse, request.durationMinutes);
         return true;
     }
 
     if (request.type === "logAttempt") {
-        let action = request.action;
-        let domain = "";
-        if (sender.tab && sender.tab.url) {
-            try {
-                let url = new URL(sender.tab.url);
-                domain = url.hostname;
-                if (domain.startsWith("www.")) domain = domain.substring(4);
-            } catch(e) {}
-        }
-        if (domain) {
-            chrome.storage.local.get(['anchor_attempts_log', 'anchor_stats_total', 'anchor_stats_saved', 'anchor_stats_opened'], function(result) {
-                let log = result.anchor_attempts_log || [];
-                let total = result.anchor_stats_total || 0;
-                let saved = result.anchor_stats_saved || 0;
-                let opened = result.anchor_stats_opened || 0;
-                
-                log.push({
-                    timestamp: Date.now(),
-                    host: domain,
-                    action: action
-                });
-                
-                let update = {
-                    anchor_attempts_log: log,
-                    anchor_stats_total: total + 1
-                };
-                
-                if (action === 'saved') {
-                    update.anchor_stats_saved = saved + 1;
-                } else {
-                    update.anchor_stats_opened = opened + 1;
-                }
-                
-                chrome.storage.local.set(update, function() {
-                    sendResponse({ success: true });
-                });
-            });
-        } else {
-            sendResponse({ success: false });
-        }
-        return true;
+        return logAttempt(request, sender, sendResponse);
     }
 
     if (request.type === "status") {
-      let domain = "";
-      let checkUrl = request.url || (sender.tab && sender.tab.url);
-      if (checkUrl) {
-          try {
-              let url = new URL(checkUrl);
-              domain = url.hostname;
-              if (domain.startsWith("www.")) domain = domain.substring(4);
-          } catch(e) {}
-      }
-      
-      let cooldownKey = "cooldown_" + domain;
-      let domainSettingsKey = "domainSettings_" + domain;
-
-      chrome.storage.local.get(null, function(result) {
-        let currentStatus = result.status;
-        if (currentStatus === undefined) currentStatus = 1; // default to 1
-        
-        let mode = result.operatingMode || 'allowlist';
-        let isExcluded = false;
-
-        let reInterventionEnabled = true;
-        let reInterventionInterval = 10;
-        let sinkingEnabled = true;
-        let activeCooldownRemainingMinutes = null;
-        
-        // Merge domain-specific overrides
-        let domainOverrides = result[domainSettingsKey];
-        if (domainOverrides) {
-            if (domainOverrides.anchorEnabled !== undefined) {
-                result.anchorEnabled = domainOverrides.anchorEnabled;
-            }
-            if (domainOverrides.anchorDuration !== undefined) {
-                result.anchorDuration = domainOverrides.anchorDuration;
-            }
-            if (domainOverrides.reInterventionEnabled !== undefined) {
-                reInterventionEnabled = domainOverrides.reInterventionEnabled;
-            }
-            if (domainOverrides.reInterventionInterval !== undefined) {
-                reInterventionInterval = domainOverrides.reInterventionInterval;
-            }
-            if (domainOverrides.sinkingEnabled !== undefined) {
-                sinkingEnabled = domainOverrides.sinkingEnabled;
-            }
-        }
-        
-        // Check if there is an active bypass cooldown/session for this tab or domain
-        let anchorBypassMode = result.anchorBypassMode || 'cooldown';
-        if (anchorBypassMode === 'cooldown') {
-             let cooldownVal = result[cooldownKey];
-             if (cooldownVal && Date.now() < cooldownVal) {
-                  activeCooldownRemainingMinutes = Math.max(1, Math.ceil((cooldownVal - Date.now()) / (60 * 1000)));
-                  if (request.navigationType !== 'reload' && sender.tab && bypassedTabs[sender.tab.id]) {
-                      isExcluded = true;
-                  }
-             }
-        } else if (anchorBypassMode === 'once') {
-             if (sender.tab && bypassedTabs[sender.tab.id]) {
-                  isExcluded = true;
-             }
-        }
-        
-        // Focus Schedule check
-        let scheduleEnabled = result.scheduleEnabled === undefined ? false : result.scheduleEnabled;
-        let scheduleStart = result.scheduleStart || '09:00';
-        let scheduleEnd = result.scheduleEnd || '17:00';
-        let scheduleDays = result.scheduleDays || [1, 2, 3, 4, 5];
-        
-        if (!isExcluded && currentStatus === 1 && scheduleEnabled) {
-            let now = new Date();
-            let currentDay = now.getDay();
-            if (!scheduleDays.includes(currentDay)) {
-                isExcluded = true;
-            } else {
-                let currentHours = now.getHours();
-                let currentMins = now.getMinutes();
-                let currentTimeVal = currentHours * 60 + currentMins;
-                
-                let startParts = scheduleStart.split(":");
-                let startTimeVal = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
-                
-                let endParts = scheduleEnd.split(":");
-                let endTimeVal = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
-                
-                let inSchedule = false;
-                if (startTimeVal <= endTimeVal) {
-                    inSchedule = currentTimeVal >= startTimeVal && currentTimeVal <= endTimeVal;
-                } else {
-                    inSchedule = currentTimeVal >= startTimeVal || currentTimeVal <= endTimeVal;
-                }
-                
-                if (!inSchedule) {
-                    isExcluded = true;
-                }
-            }
-        }
-        
-        // Only run website blocklist/allowlist checks if we aren't already excluded by schedule/cooldown
-        if (!isExcluded && checkUrl) {
-            try {
-                let url = new URL(checkUrl);
-                if (mode === 'blocklist') {
-                    if (result.exclusions) {
-                        isExcluded = result.exclusions.some(ex => {
-                            let siteSettings = result["domainSettings_" + ex];
-                            if (siteSettings && siteSettings.scope === 'exact') {
-                                return url.hostname === ex;
-                            }
-                            return url.hostname === ex || url.hostname.endsWith('.' + ex);
-                        });
-                    }
-                } else if (mode === 'allowlist') {
-                    if (result.allowlist) {
-                        isExcluded = !result.allowlist.some(ex => {
-                            let siteSettings = result["domainSettings_" + ex];
-                            if (siteSettings && siteSettings.scope === 'exact') {
-                                return url.hostname === ex;
-                            }
-                            return url.hostname === ex || url.hostname.endsWith('.' + ex);
-                        });
-                    } else {
-                        isExcluded = true; // Blocked everywhere by default
-                    }
-                }
-            } catch(e) {}
-        }
-        
-        let isTarget = false;
-        if (checkUrl) {
-            try {
-                let url = new URL(checkUrl);
-                if (mode === 'blocklist') {
-                    if (result.exclusions) {
-                        isTarget = !result.exclusions.some(ex => {
-                            let siteSettings = result["domainSettings_" + ex];
-                            if (siteSettings && siteSettings.scope === 'exact') {
-                                return url.hostname === ex;
-                            }
-                            return url.hostname === ex || url.hostname.endsWith('.' + ex);
-                        });
-                    } else {
-                        isTarget = true;
-                    }
-                } else if (mode === 'allowlist') {
-                    if (result.allowlist) {
-                        isTarget = result.allowlist.some(ex => {
-                            let siteSettings = result["domainSettings_" + ex];
-                            if (siteSettings && siteSettings.scope === 'exact') {
-                                return url.hostname === ex;
-                            }
-                            return url.hostname === ex || url.hostname.endsWith('.' + ex);
-                        });
-                    }
-                }
-            } catch(e) {}
-        }
-
-        let attemptsLog = result.anchor_attempts_log || [];
-        let now = Date.now();
-        let dayMs = 24 * 60 * 60 * 1000;
-        let siteAttempts = attemptsLog.filter(l => {
-            let logHost = l.host || "";
-            if (logHost.startsWith("www.")) logHost = logHost.substring(4);
-            return logHost === domain && (now - l.timestamp) <= dayMs;
-        });
-
-        sendResponse({
-            status: currentStatus,
-            isExcluded: isExcluded,
-            isTarget: isTarget,
-            attemptsCount24h: siteAttempts.length,
-            customDepth: result.customDepth || 10,
-            cpuSetting: result.cpuSetting || 'high',
-            reelLimit: result.reelLimit || 10,
-            scrollBuffer: result.scrollBuffer !== undefined ? result.scrollBuffer : 2,
-            reelBuffer: result.reelBuffer !== undefined ? result.reelBuffer : 2,
-            anchorEnabled: result.anchorEnabled === undefined ? true : result.anchorEnabled,
-            anchorType: result.anchorType || 'basicBreath',
-            anchorDuration: result.anchorDuration || 5,
-            anchorPhrase: result.anchorPhrase || 'Take a deep breath...',
-            anchorTextLength: result.anchorTextLength || 'short',
-            anchorTextComplexity: result.anchorTextComplexity || 'lowercase',
-            closeTabOnLeave: result.closeTabOnLeave === undefined ? true : result.closeTabOnLeave,
-            anchorMathComplexity: result.anchorMathComplexity || 'medium',
-            anchorAlternativesList: result.anchorAlternativesList || '',
-            anchorIntentionWarning: result.anchorIntentionWarning === undefined ? true : result.anchorIntentionWarning,
-            anchorBypassMode: anchorBypassMode,
-            anchorBypassTime: result.anchorBypassTime || 5,
-            activeCooldownRemainingMinutes: activeCooldownRemainingMinutes,
-            reInterventionEnabled: reInterventionEnabled,
-            reInterventionInterval: reInterventionInterval,
-            reInterventionMode: result.reInterventionMode || 'time',
-            reInterventionScrollMult: result.reInterventionScrollMult || 1.0,
-            reInterventionType: result.reInterventionType || 'same',
-            sinkingEnabled: sinkingEnabled,
-            showDepthIndicator: result.showDepthIndicator === undefined ? true : result.showDepthIndicator
-        });
-      });
-      return true;
+        return sendStatus(request, sender, sendResponse);
     }
 });
 
 chrome.runtime.onInstalled.addListener(function(details) {
-    // Database migration from old onesec_* keys to new anchor_* keys
     chrome.storage.local.get(null, function(result) {
-        let migration = {};
-        let keysToMigrate = {
-            'onesec_attempts_log': 'anchor_attempts_log',
-            'onesec_stats_total': 'anchor_stats_total',
-            'onesec_stats_saved': 'anchor_stats_saved',
-            'onesec_stats_opened': 'anchor_stats_opened',
-            'oneSecEnabled': 'anchorEnabled',
-            'oneSecType': 'anchorType',
-            'oneSecDuration': 'anchorDuration',
-            'oneSecPhrase': 'anchorPhrase',
-            'oneSecTextLength': 'anchorTextLength',
-            'oneSecTextComplexity': 'anchorTextComplexity',
-            'onesecMathComplexity': 'anchorMathComplexity',
-            'onesecAlternativesList': 'anchorAlternativesList',
-            'onesecIntentionWarning': 'anchorIntentionWarning',
-            'onesecBypassMode': 'anchorBypassMode',
-            'onesecBypassTime': 'anchorBypassTime'
+        const migration = {};
+        const keysToMigrate = {
+            onesec_attempts_log: "anchor_attempts_log",
+            onesec_stats_total: "anchor_stats_total",
+            onesec_stats_saved: "anchor_stats_saved",
+            onesec_stats_opened: "anchor_stats_opened",
+            oneSecEnabled: "anchorEnabled",
+            oneSecType: "anchorType",
+            oneSecDuration: "anchorDuration",
+            oneSecPhrase: "anchorPhrase",
+            oneSecTextLength: "anchorTextLength",
+            oneSecTextComplexity: "anchorTextComplexity",
+            onesecMathComplexity: "anchorMathComplexity",
+            onesecAlternativesList: "anchorAlternativesList",
+            onesecIntentionWarning: "anchorIntentionWarning",
+            onesecBypassMode: "anchorBypassMode",
+            onesecBypassTime: "anchorBypassTime"
         };
-        for (let oldKey in keysToMigrate) {
-            let newKey = keysToMigrate[oldKey];
-            if (result[oldKey] !== undefined && result[newKey] === undefined) {
-                migration[newKey] = result[oldKey];
+        for (const oldKey in keysToMigrate) {
+            const newKey = keysToMigrate[oldKey];
+            if (result[oldKey] !== undefined && result[newKey] === undefined) migration[newKey] = result[oldKey];
+        }
+        for (const key in result) {
+            if (!key.startsWith("domainSettings_") || !result[key]) continue;
+            const overrides = { ...result[key] };
+            let changed = false;
+            if (overrides.oneSecEnabled !== undefined) {
+                overrides.anchorEnabled = overrides.oneSecEnabled;
+                delete overrides.oneSecEnabled;
+                changed = true;
             }
-        }
-        
-        // Migrate domain-specific settings overrides
-        for (let key in result) {
-            if (key.startsWith("domainSettings_")) {
-                let overrides = result[key];
-                if (overrides) {
-                    let updated = false;
-                    let newOverrides = { ...overrides };
-                    if (overrides.oneSecEnabled !== undefined) {
-                        newOverrides.anchorEnabled = overrides.oneSecEnabled;
-                        delete newOverrides.oneSecEnabled;
-                        updated = true;
-                    }
-                    if (overrides.oneSecDuration !== undefined) {
-                        newOverrides.anchorDuration = overrides.oneSecDuration;
-                        delete newOverrides.oneSecDuration;
-                        updated = true;
-                    }
-                    if (updated) {
-                        migration[key] = newOverrides;
-                    }
-                }
+            if (overrides.oneSecDuration !== undefined) {
+                overrides.anchorDuration = overrides.oneSecDuration;
+                delete overrides.oneSecDuration;
+                changed = true;
             }
+            if (changed) migration[key] = overrides;
         }
-
-        if (Object.keys(migration).length > 0) {
-            chrome.storage.local.set(migration);
-        }
+        if (Object.keys(migration).length) chrome.storage.local.set(migration);
     });
 
-    if (details.reason === "install") {
-        chrome.tabs.create({url: "onboarding.html"});
-    }
+    if (details.reason === "install") chrome.tabs.create({ url: "onboarding.html" });
 });

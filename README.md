@@ -17,7 +17,7 @@ Install on firefox: https://addons.mozilla.org/en-US/firefox/addon/anchor-scroll
 
 ### 1. Sinking Scroll & Reel Blocker
 *   **Virtual Sinking:** Watch the screen turn deep blue as you scroll past your buffer zone. A depth marker counts your meters until you hit rock bottom and scrolling blocks.
-*   **Short-Form Video Blocker (Reels, Shorts, TikTok):** Automatically detects and tracks swiping on **YouTube Shorts** (`/shorts/`), **Instagram Reels** (`/reels/` or `/reel/`), and **TikTok** (`tiktok.com`). Swiping to a new video increases your watched count and moves the depth meter down. Once you hit your configured limit, downward swiping/scrolling is fully blocked (via mouse wheel, keys, and touchscreen gestures), but you can still swipe back up to previously watched content.
+*   **Short-Form Video Blocker (Reels, Shorts, TikTok, X):** Automatically detects and tracks swiping on **YouTube Shorts** (`/shorts/`), **Instagram Reels** (`/reels/` or `/reel/`), **TikTok** (`tiktok.com`), and video posts in the **X/Twitter** timeline. Swiping to a new video increases your watched count and moves the depth meter down. Once you hit your configured limit, downward swiping/scrolling is fully blocked (via mouse wheel, keys, touchscreen gestures, and feed navigation), but you can still swipe back up to previously watched content.
 *   **Performance Profiles:** Toggle animation density (High, Low, or None) to save CPU/battery.
 
 ### 2. Mindful Interventions

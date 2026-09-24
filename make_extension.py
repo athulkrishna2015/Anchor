@@ -6,6 +6,7 @@ import datetime
 import subprocess
 import argparse
 import shutil
+from pathlib import Path
 
 CHROME_BUILD_DIR = "chrome_build"
 FIREFOX_BUILD_DIR = "firefox_build"
@@ -28,7 +29,10 @@ def transform_manifest_for_firefox(manifest):
     firefox_manifest = json.loads(json.dumps(manifest))
 
     if "background" in firefox_manifest and "service_worker" in firefox_manifest["background"]:
-        firefox_manifest["background"]["scripts"] = [firefox_manifest["background"]["service_worker"]]
+        firefox_manifest["background"]["scripts"] = [
+            "js/core.js",
+            firefox_manifest["background"]["service_worker"]
+        ]
         del firefox_manifest["background"]["service_worker"]
 
     firefox_manifest["browser_specific_settings"] = {
@@ -53,7 +57,7 @@ def iter_extension_files():
         for file in files:
             path = os.path.join(root, file)
             rel_path = os.path.relpath(path, CHROME_BUILD_DIR)
-            if rel_path == "manifest.json":
+            if rel_path == "manifest.json" or any(part.startswith(".") for part in Path(rel_path).parts):
                 continue
             yield path, rel_path
 
@@ -106,34 +110,33 @@ def create_addon(browser, version_override=None):
     print(f"Created {filename}")
     return filename
 
-def sign_firefox(version, version_override=None):
+def sign_firefox(version_override=None):
     """Sign the Firefox addon using web-ext."""
     env = load_env()
     issuer = env.get("AMO_JWT_ISSUER")
     secret = env.get("AMO_JWT_SECRET")
-    
+
     if not issuer or not secret:
-        print("\nError: AMO_JWT_ISSUER or AMO_JWT_SECRET not found in .env")
-        return
+        raise RuntimeError("AMO_JWT_ISSUER or AMO_JWT_SECRET not found in .env")
 
     manifest = transform_manifest_for_firefox(load_manifest(version_override))
     copy_unpacked_build(FIREFOX_TEMP_BUILD_DIR, manifest)
 
-    print(f"\nSigning Firefox addon...")
+    print("\nSigning Firefox addon...")
     cmd = [
-        "npx", "web-ext", "sign",
-        "--api-key", issuer,
-        "--api-secret", secret,
+        "bunx", "web-ext", "sign",
         "--channel", "listed",
         "--source-dir", FIREFOX_TEMP_BUILD_DIR,
         "--artifacts-dir", "./web-ext-artifacts"
     ]
-    
+    sign_env = os.environ.copy()
+    sign_env["WEB_EXT_SIGN_API_KEY"] = issuer
+    sign_env["WEB_EXT_SIGN_API_SECRET"] = secret
+
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, env=sign_env)
         print("\nSuccessfully signed Firefox addon!")
     finally:
-        # Cleanup safely
         if os.path.exists(FIREFOX_TEMP_BUILD_DIR):
             shutil.rmtree(FIREFOX_TEMP_BUILD_DIR, ignore_errors=True)
 
