@@ -30,6 +30,14 @@
             : normalizedHost === normalizedDomain || normalizedHost.endsWith("." + normalizedDomain);
     }
 
+    function getDepthProgress(current, start, bottom) {
+        var value = Number(current) || 0;
+        var from = Number(start) || 0;
+        var to = Number(bottom) || 0;
+        if (to <= from) return value >= to ? 1 : 0;
+        return Math.min(1, Math.max(0, (value - from) / (to - from)));
+    }
+
     function isReelUrl(value) {
         try {
             var url = new URL(value);
@@ -170,6 +178,7 @@
     var api = {
         normalizeDomain: normalizeDomain,
         hostMatchesDomain: hostMatchesDomain,
+        getDepthProgress: getDepthProgress,
         isReelUrl: isReelUrl,
         isPageActive: isPageActive,
         createActiveCountdown: createActiveCountdown,

@@ -10,6 +10,14 @@ test("normalizes safe domains and X aliases", () => {
     expect(core.hostMatchesDomain("m.instagram.com", "instagram.com", true)).toBe(false);
 });
 
+test("dimming follows depth in both scroll directions", () => {
+    expect(core.getDepthProgress(0, 2000, 10000)).toBe(0);
+    expect(core.getDepthProgress(6000, 2000, 10000)).toBe(0.5);
+    expect(core.getDepthProgress(10000, 2000, 10000)).toBe(1);
+    expect(core.getDepthProgress(5000, 2000, 10000)).toBe(0.375);
+    expect(core.getDepthProgress(20000, 2000, 10000)).toBe(1);
+});
+
 test("recognizes all supported reel routes", () => {
     expect(core.isReelUrl("https://www.youtube.com/shorts/abc")).toBe(true);
     expect(core.isReelUrl("https://www.instagram.com/reel/abc")).toBe(true);

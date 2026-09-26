@@ -241,22 +241,17 @@ var init = function(){
                     if ($anchor.outerHeight() != docHeight) {
                         $anchor.css({"height": docHeight + "px"});
                     }
-                    var progress = (s - depthStart) / (depthBottomPixel - depthStart);
-                    var easedProgress = progress * 0.99;
-                    if (progress <= 0) {
-                        $sea.css({"opacity": 0});
-                    } else if (progress <= 1) {
-                        $sea.css({"opacity": easedProgress});
-                    } else {
-                        if (s > depthBottomPixel) {
-                            // Lock scrolling at rock bottom only if we don't trigger scroll-based re-interventions
-                            if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
-                                // Allow infinite scrolling, color stays deep blue
-                            } else {
-                                $window.scrollTop(depthBottomPixel);
-                            }
+                    var progress = AnchorCore.getDepthProgress(s, depthStart, depthBottomPixel);
+                    $sea.css({"opacity": progress * 0.99});
+                    if (s < depthBottomPixel) {
+                        document.documentElement.classList.remove("anchor-extension-at-bottom");
+                    } else if (s > depthBottomPixel) {
+                        // Lock scrolling at rock bottom only if we don't trigger scroll-based re-interventions
+                        if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
+                            // Allow infinite scrolling, color stays deep blue
+                        } else {
+                            $window.scrollTop(depthBottomPixel);
                         }
-                        $sea.css({"opacity": 0.99});
                     }
 
                     // Scroll-based Re-Intervention Check

@@ -136,11 +136,6 @@
 
 html.anchor-extension-at-bottom,
 body.anchor-extension-at-bottom {
-    overflow: hidden !important;
-}
-
-html.anchor-extension-at-bottom,
-body.anchor-extension-at-bottom {
     overscroll-behavior: none !important;
 }
 

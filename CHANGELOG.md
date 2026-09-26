@@ -2,6 +2,11 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.2] - 2026-09-24
+
+### Fixed
+- **Reversible Depth Dimming**: Scrolling back toward the surface now restores the page to full brightness, and the bottom lock no longer traps the scroll position.
+
 ## [2.1.1] - 2026-09-24
 
 ### Added
