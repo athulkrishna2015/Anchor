@@ -137,6 +137,8 @@ def sign_firefox(version_override=None):
     try:
         subprocess.run(cmd, check=True, env=sign_env)
         print("\nSuccessfully signed Firefox addon!")
+        artifacts = sorted(Path("web-ext-artifacts").glob("*.xpi"), key=lambda path: path.stat().st_mtime)
+        return str(artifacts[-1]) if artifacts else None
     finally:
         if os.path.exists(FIREFOX_TEMP_BUILD_DIR):
             shutil.rmtree(FIREFOX_TEMP_BUILD_DIR, ignore_errors=True)
@@ -155,10 +157,24 @@ def clean_old_builds(new_chrome_file, new_firefox_file):
                 except Exception as e:
                     print(f"Error removing {file}: {e}")
 
+def publish_release(version, chrome_file, firefox_file):
+    """Create the GitHub release and upload both browser packages."""
+    tag = f"v{version}"
+    notes = (
+        "X Home now uses reversible depth dimming. Depth is mapped to the page's "
+        "actual scroll range and remains stable during mobile browser UI changes."
+    )
+    subprocess.run([
+        "gh", "release", "create", tag, chrome_file, firefox_file,
+        "--title", tag, "--notes", notes
+    ], check=True)
+    print(f"Published GitHub release {tag}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build and optionally sign the Anchor extension.")
     parser.add_argument("version", nargs="?", help="Version override for the built addon (optional).")
     parser.add_argument("--sign", action="store_true", help="Sign the Firefox addon using credentials in .env")
+    parser.add_argument("--release", action="store_true", help="Create a GitHub release and upload both packages")
     parser.add_argument("--clean", action="store_true", help="Delete older zip/xpi build files and keep only the newly generated ones")
     
     args = parser.parse_args()
@@ -170,8 +186,11 @@ if __name__ == "__main__":
     firefox_file = create_addon("firefox", args.version)
     
     # Optionally sign the Firefox version
-    if args.sign:
-        sign_firefox(args.version)
+    signed_firefox_file = sign_firefox(args.version) if args.sign else None
+
+    if args.release:
+        version = args.version or load_manifest().get("version", "1.0.0")
+        publish_release(version, chrome_file, signed_firefox_file or firefox_file)
 
     # Clean old builds if requested
     if args.clean:

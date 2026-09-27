@@ -45,7 +45,7 @@
             return hostMatchesDomain(url.hostname, "youtube.com", false) && path.startsWith("/shorts/") ||
                 hostMatchesDomain(url.hostname, "tiktok.com", false) ||
                 hostMatchesDomain(url.hostname, "instagram.com", false) && (path.startsWith("/reel/") || path.startsWith("/reels/")) ||
-                hostMatchesDomain(url.hostname, "x.com", false);
+                hostMatchesDomain(url.hostname, "x.com", false) && /^\/[^/]+\/status(?:es)?\/\d+/.test(path);
         } catch (error) {
             return false;
         }

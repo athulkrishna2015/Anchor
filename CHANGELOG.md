@@ -2,6 +2,12 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.3] - 2026-09-27
+
+### Fixed
+- **X Home Scrolling**: X Home pages now use normal reversible depth dimming instead of being incorrectly treated as short-video pages.
+- **Page-Relative Depth**: Depth now reaches the configured bottom across short pages and remains stable while mobile browser chrome changes size.
+
 ## [2.1.2] - 2026-09-24
 
 ### Fixed

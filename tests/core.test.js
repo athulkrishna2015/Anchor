@@ -24,6 +24,7 @@ test("recognizes all supported reel routes", () => {
     expect(core.isReelUrl("https://www.tiktok.com/@user/video/1")).toBe(true);
     expect(core.isReelUrl("https://x.com/user/status/1")).toBe(true);
     expect(core.isReelUrl("https://mobile.twitter.com/user/status/1")).toBe(true);
+    expect(core.isReelUrl("https://x.com/home")).toBe(false);
     expect(core.isReelUrl("https://m.instagram.com/reel/abc")).toBe(true);
     expect(core.isReelUrl("https://m.youtube.com/shorts/abc")).toBe(true);
     expect(core.isReelUrl("https://example.com/shorts/abc")).toBe(false);
