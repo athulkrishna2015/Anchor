@@ -18,6 +18,37 @@ test("dimming follows depth in both scroll directions", () => {
     expect(core.getDepthProgress(20000, 2000, 10000)).toBe(1);
 });
 
+test("depth limit caps long pages and scales to short pages", () => {
+    expect(core.getDepthScrollState(5000, 20000, 10000)).toEqual({ limit: 10000, depth: 5000, hasPageScroll: true });
+    expect(core.getDepthScrollState(9000, 9000, 10000)).toEqual({ limit: 9000, depth: 10000, hasPageScroll: true });
+    expect(core.getDepthScrollState(0, 0, 10000)).toEqual({ limit: 0, depth: 0, hasPageScroll: false });
+    expect(core.shouldBlockDepthScroll(9999, 20000, 10000, "down")).toBe(false);
+    expect(core.shouldBlockDepthScroll(10000, 20000, 10000, "down")).toBe(true);
+    expect(core.shouldBlockDepthScroll(1000, 1000, 10000, "down")).toBe(true);
+    expect(core.shouldBlockDepthScroll(0, 0, 10000, "down")).toBe(false);
+    expect(core.shouldBlockDepthScroll(10000, 20000, 10000, "up")).toBe(false);
+});
+
+test("nested scroll containers preserve their own directional range", () => {
+    expect(core.canScrollElement(20, 400, 100, "down")).toBe(true);
+    expect(core.canScrollElement(300, 400, 100, "down")).toBe(false);
+    expect(core.canScrollElement(20, 400, 100, "up")).toBe(true);
+    expect(core.canScrollElement(0, 400, 100, "up")).toBe(false);
+});
+
+test("nested scroller hands off only when it cannot consume the gesture", () => {
+    expect(core.canScrollElement(20, 400, 100, "down", 2)).toBe(true);
+    expect(core.canScrollElement(299, 400, 100, "down", 2)).toBe(false);
+    expect(core.canScrollElement(20, 400, 100, "up", 2)).toBe(true);
+    expect(core.canScrollElement(1, 400, 100, "up", 2)).toBe(false);
+});
+
+test("scroll depth limit is independent of current scroll direction", () => {
+    expect(core.shouldBlockDepthScroll(10000, 25000, 10000, "down")).toBe(true);
+    expect(core.shouldBlockDepthScroll(9999, 25000, 10000, "down")).toBe(false);
+    expect(core.shouldBlockDepthScroll(10000, 25000, 10000, "up")).toBe(false);
+});
+
 test("recognizes all supported reel routes", () => {
     expect(core.isReelUrl("https://www.youtube.com/shorts/abc")).toBe(true);
     expect(core.isReelUrl("https://www.instagram.com/reel/abc")).toBe(true);

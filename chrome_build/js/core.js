@@ -38,6 +38,37 @@
         return Math.min(1, Math.max(0, (value - from) / (to - from)));
     }
 
+    function getDepthScrollState(scrollTop, pageScrollRange, configuredDepth) {
+        var scroll = Math.max(0, Number(scrollTop) || 0);
+        var pageRange = Math.max(0, Number(pageScrollRange) || 0);
+        var depth = Math.max(0, Number(configuredDepth) || 0);
+        if (pageRange <= 0 || depth <= 0) {
+            return { limit: 0, depth: 0, hasPageScroll: false };
+        }
+        var limit = Math.min(pageRange, depth);
+        var virtualDepth = pageRange > depth ? Math.min(scroll, depth) : (scroll / pageRange) * depth;
+        return {
+            limit: limit,
+            depth: Math.min(depth, Math.max(0, virtualDepth)),
+            hasPageScroll: true
+        };
+    }
+
+    function canScrollElement(scrollTop, scrollHeight, clientHeight, direction, tolerance) {
+        var top = Number(scrollTop) || 0;
+        var max = Math.max(0, (Number(scrollHeight) || 0) - (Number(clientHeight) || 0));
+        var epsilon = Math.max(0, Number(tolerance) || 1);
+        if (direction === "down") return max - top > epsilon;
+        if (direction === "up") return top > epsilon;
+        return false;
+    }
+
+    function shouldBlockDepthScroll(scrollTop, pageScrollRange, configuredDepth, direction) {
+        if (direction !== "down") return false;
+        var state = getDepthScrollState(scrollTop, pageScrollRange, configuredDepth);
+        return state.hasPageScroll && (Number(scrollTop) || 0) >= state.limit;
+    }
+
     function isReelUrl(value) {
         try {
             var url = new URL(value);
@@ -179,6 +210,9 @@
         normalizeDomain: normalizeDomain,
         hostMatchesDomain: hostMatchesDomain,
         getDepthProgress: getDepthProgress,
+        getDepthScrollState: getDepthScrollState,
+        canScrollElement: canScrollElement,
+        shouldBlockDepthScroll: shouldBlockDepthScroll,
         isReelUrl: isReelUrl,
         isPageActive: isPageActive,
         createActiveCountdown: createActiveCountdown,

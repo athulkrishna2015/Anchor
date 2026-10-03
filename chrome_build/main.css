@@ -139,10 +139,6 @@ body.anchor-extension-at-bottom {
     overscroll-behavior: none !important;
 }
 
-html.anchor-extension-at-bottom *:not(.anchor-extension):not(.anchor-extension *):not(#anchor-extension-overlay):not(#anchor-extension-overlay *) {
-    touch-action: pan-up !important;
-}
-
 @keyframes swim {
   from {transform: translate(120vw,0%);}
   to {transform: translate(0vw, 0%);}

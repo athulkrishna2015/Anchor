@@ -161,8 +161,8 @@ def publish_release(version, chrome_file, firefox_file):
     """Create the GitHub release and upload both browser packages."""
     tag = f"v{version}"
     notes = (
-        "Instagram DM sidebars, chat lists, and other inner scroll containers no longer "
-        "trigger the page-bottom scroll lock, restoring normal downward scrolling."
+        "Improved rock-bottom enforcement, nested chat/list scrolling, mobile depth stability, "
+        "and keyboard handling."
     )
     subprocess.run([
         "gh", "release", "create", tag, chrome_file, firefox_file,

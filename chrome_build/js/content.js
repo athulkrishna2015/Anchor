@@ -205,6 +205,19 @@ var init = function(){
 
 	depthBottomPixel = meterToPixel(depthBottomMeters);
 	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
+	var depthDocumentHeight = 0;
+	var depthPageScrollRange = 0;
+	function getLayoutViewportHeight() {
+		return document.documentElement.clientHeight || window.innerHeight;
+	}
+	function getDepthPageScrollRange() {
+		var documentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+		if (documentHeight !== depthDocumentHeight) {
+			depthDocumentHeight = documentHeight;
+			depthPageScrollRange = Math.max(0, documentHeight - getLayoutViewportHeight());
+		}
+		return depthPageScrollRange;
+	}
 
 	// Create elements
 	$("html").append('<div class="anchor-extension"></div>');
@@ -227,8 +240,6 @@ var init = function(){
 
     function attachScrollListener() {
         var ticking = false;
-        var depthDocumentHeight = 0;
-        var depthScrollRange = 0;
         var $window = $(window);
         var $anchor = $(".anchor-extension");
         var $sea = $(".sea");
@@ -238,30 +249,30 @@ var init = function(){
             if (!ticking) {
                 window.requestAnimationFrame(function() {
                     var s = $window.scrollTop();
-                    var docHeight = document.body.scrollHeight;
+                    var docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
 
                     if ($anchor.outerHeight() != docHeight) {
                         $anchor.css({"height": docHeight + "px"});
                     }
-                    // Map the configured depth across this page's actual scroll range.
-                    // Short pages should still reach full depth at their bottom.
-                    // Keep the range stable while mobile browser chrome changes the
-                    // viewport height during a gesture; otherwise the overlay jumps.
-                    if (docHeight !== depthDocumentHeight) {
-                        depthDocumentHeight = docHeight;
-                        depthScrollRange = Math.max(0, docHeight - window.innerHeight);
-                    }
-                    var maxScroll = depthScrollRange;
-                    var virtualScroll = maxScroll > 0 ? (s / maxScroll) * depthBottomPixel : 0;
+                    // On long pages stop at the configured depth; on shorter pages
+                    // scale depth to the document's actual bottom.
+                    // Cache the range against document growth, not every mobile
+                    // browser-toolbar viewport resize during a scroll gesture.
+                    var pageScrollRange = getDepthPageScrollRange();
+                    var depthState = AnchorCore.getDepthScrollState(s, pageScrollRange, depthBottomPixel);
+                    var maxScroll = depthState.limit;
+                    var virtualScroll = depthState.depth;
                     var progress = AnchorCore.getDepthProgress(virtualScroll, depthStart, depthBottomPixel);
                     $sea.css({"opacity": progress * 0.99});
+                    var allowDepthReintervention = globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll';
                     if (s < maxScroll) {
                         document.documentElement.classList.remove("anchor-extension-at-bottom");
-                    } else if (s > maxScroll) {
+                    } else if (s >= maxScroll && depthState.hasPageScroll) {
+                        if (!allowDepthReintervention) document.documentElement.classList.add("anchor-extension-at-bottom");
                         // Lock scrolling at rock bottom only if we don't trigger scroll-based re-interventions
-                        if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
+                        if (allowDepthReintervention) {
                             // Allow infinite scrolling, color stays deep blue
-                        } else {
+                        } else if (s > maxScroll) {
                             $window.scrollTop(maxScroll);
                         }
                     }
@@ -270,7 +281,9 @@ var init = function(){
                     if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
                         let mult = globalSettings.reInterventionScrollMult || 1.0;
                         let threshold = depthBottomPixel * currentScrollLoop * mult;
-                        if (virtualScroll >= threshold) {
+                        // Re-intervention loops intentionally continue past the visual
+                        // depth cap, so compare against real cumulative page scroll.
+                        if (s >= threshold) {
                             currentScrollLoop++;
                             runReIntervention(globalSettings);
                         }
@@ -280,10 +293,14 @@ var init = function(){
                     if (markerProgress < 0) markerProgress = 0;
                     if (markerProgress > 0.9 && $(".rock").length == 0) {
                         $anchor.append('<svg class="rock" viewBox="0 0 1333 291" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g id="Desktop-HD" transform="translate(-34.000000, -705.000000)" fill="#D8D8D8"><path d="M34,937.037871 L102.36719,782.763552 L195.974042,782.763552 L262.011649,859.900712 L396.492082,907.191989 L396.492082,949.404322 L262.011649,995.171538 L34,982.517914 L34,982.517914 Z M1216.41445,817.476134 L1136.52101,875.733964 L1089.01915,848.308754 L1078.10749,789.816737 L1023.71941,726.417772 L1036.0869,704.996645 L1117.73953,721.172024 L1229.73933,794.396771 L1216.41445,817.476134 Z M837.058065,952.238533 L982.51325,858.382082 L1132.35531,905.310308 L1132.35531,983.688137 L837.058065,952.238533 Z M549,861.613678 L698.562209,810 L782.472553,862.707043 L782.472553,981.125972 L634.21128,995.171538 L549,940.751588 L549,861.613678 Z M834.207142,798.121399 L915.213072,719.153854 L972.273831,758.637627 L972.273831,830.188964 L875.829517,858.382082 L817,830.188964 L834.207142,798.121399 Z M434.090409,903.686877 L387.590849,800.557712 L444.209388,760.442383 L511.445651,784.914382 L504.952619,885.185007 L458.338873,930.824055 L434.090409,903.686877 Z M1276.35036,837.894431 L1367.0178,905.549797 L1336.94641,968.084667 L1266.27598,979.277762 L1223.34276,888.431213 L1241.98581,825.91561 L1276.35036,837.894431 Z" id="Combined-Shape"></path></g></g></svg>');
-                        $(".rock").css({"top": (depthBottomPixel + window.innerHeight) + "px"});
+                    }
+                    if ($(".rock").length) {
+                        // Keep the visible rock floor aligned with the enforced limit,
+                        // including pages shorter than the configured depth.
+                        $(".rock").css({"top": (maxScroll + getLayoutViewportHeight()) + "px"});
                     }
                     if (markerProgress > 1) markerProgress = 1;
-                    var pos = markerProgress * (window.innerHeight - 60);
+                    var pos = markerProgress * (getLayoutViewportHeight() - 60);
                     $marker.css({"transform": "translate(0, " + pos + "px)"});
                     var m = Math.round(virtualScroll / 100) / 10;
                     $marker.find("span").text(m + 'm');
@@ -297,16 +314,50 @@ var init = function(){
 
     $("body").append('<div id="anchor-extension-blocker" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999999999;background:transparent;pointer-events:none;"></div>');
 
-    function stopEvent(event) {
+    function canNestedScrollerConsume(target, direction) {
+        var node = target && target.nodeType === 1 ? target : target && target.parentElement;
+        while (node && node !== document.body && node !== document.documentElement) {
+            var style = window.getComputedStyle(node);
+            var overflowY = style.overflowY;
+            var hasOverflow = node.scrollHeight > node.clientHeight + 2;
+            var allowsOverflowScroll = overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+            if (hasOverflow && allowsOverflowScroll &&
+                AnchorCore.canScrollElement(node.scrollTop, node.scrollHeight, node.clientHeight, direction, 2)) {
+                return true;
+            }
+            node = node.parentElement;
+        }
+        return false;
+    }
+
+    function isEditableTarget(target) {
+        return !!(target && target.closest && target.closest(
+            'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="textbox"]'
+        ));
+    }
+
+    function isInteractiveTarget(target) {
+        return !!(target && target.closest && target.closest(
+            'button, a[href], [role="button"], [role="link"], [role="menuitem"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"], [tabindex]:not([tabindex="-1"])'
+        ));
+    }
+
+    function stopEvent(event, direction) {
+        if (direction === "up") {
+            document.documentElement.classList.remove('anchor-extension-at-bottom');
+            return;
+        }
+        // Let nested chat panes, sidebars, and other scrollable controls use their
+        // own scroll range. Only enforce the Anchor limit on page-level scrolling.
+        if (canNestedScrollerConsume(event.target, direction || "down")) return;
+
         let shouldBlock = false;
         if (isReelMode) {
             shouldBlock = reelsWatched >= reelLimit;
         } else if (!globalSettings || !globalSettings.reInterventionEnabled || globalSettings.reInterventionMode !== 'scroll') {
-            // Fixed layouts can have zero window scroll range; their inner chat/list
-            // containers must not be mistaken for the page being at rock bottom.
-            const documentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-            const maxPageScroll = Math.max(0, documentHeight - window.innerHeight);
-            shouldBlock = maxPageScroll > 0 && $(window).scrollTop() >= maxPageScroll;
+            const maxPageScroll = getDepthPageScrollRange();
+            const currentScroll = $(window).scrollTop();
+            shouldBlock = AnchorCore.shouldBlockDepthScroll(currentScroll, maxPageScroll, depthBottomPixel, "down");
         }
         if (shouldBlock) {
             document.documentElement.classList.add('anchor-extension-at-bottom');
@@ -322,6 +373,17 @@ var init = function(){
     let restoringScroll = false;
     function handleScroll() {
         const currentScrollTop = window.scrollY;
+        if (!isReelMode && !(globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll')) {
+            const pageRange = getDepthPageScrollRange();
+            const limit = Math.min(pageRange, depthBottomPixel);
+            if (pageRange > 0 && currentScrollTop > limit) {
+                // Clamp synchronously as a backstop for fast touch flicks and
+                // scrollbar dragging that can cross the wheel threshold in one frame.
+                window.scrollTo(0, limit);
+                lastScrollTop = limit;
+                return;
+            }
+        }
         if (isReelMode && reelsWatched >= reelLimit && currentScrollTop > lastScrollTop && !restoringScroll) {
             restoringScroll = true;
             window.scrollTo(0, lastScrollTop);
@@ -331,7 +393,8 @@ var init = function(){
         lastScrollTop = currentScrollTop;
     }
     function handleWheel(event) {
-        if (event.deltaY > 0) stopEvent(event);
+        if (event.deltaY > 0) stopEvent(event, "down");
+        else if (event.deltaY < 0) stopEvent(event, "up");
         else document.documentElement.classList.remove('anchor-extension-at-bottom');
     }
     function handleTouchStart(event) {
@@ -339,13 +402,17 @@ var init = function(){
     }
     function handleTouchMove(event) {
         const currentY = event.touches[0].clientY;
-        if (lastTouchY > currentY) stopEvent(event);
+        if (lastTouchY > currentY) stopEvent(event, "down");
+        else if (lastTouchY < currentY) stopEvent(event, "up");
         else document.documentElement.classList.remove('anchor-extension-at-bottom');
         lastTouchY = currentY;
     }
     function handleKeyDown(event) {
-        if (["ArrowDown", "Space", "PageDown"].includes(event.code)) stopEvent(event);
-        else if (["ArrowUp", "PageUp", "Home"].includes(event.code)) document.documentElement.classList.remove('anchor-extension-at-bottom');
+        if (isEditableTarget(event.target)) return;
+        // Space activates focused controls; do not swallow it as page scroll.
+        if (event.code === "Space" && isInteractiveTarget(event.target)) return;
+        if (["ArrowDown", "Space", "PageDown"].includes(event.code)) stopEvent(event, "down");
+        else if (["ArrowUp", "PageUp", "Home"].includes(event.code)) stopEvent(event, "up");
         else if (isReelMode && reelsWatched >= reelLimit && event.key === "Enter" && event.target && event.target.closest('a[href*="/status/"]')) stopEvent(event);
     }
     function handleReelLinkPointer(event) {

@@ -2,6 +2,14 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.5] - 2026-10-03
+
+### Fixed
+- **Rock-Bottom Depth Enforcement**: Capped long-page scrolling at the configured depth, synchronized the visible rock floor with the actual limit, and added protection against fast-scroll overshoot.
+- **Nested Scroll Areas**: Preserve scrolling in chat lists and other nested scroll panes, handing off to the page limit only when the nested pane cannot consume the gesture.
+- **Mobile Depth Tracking**: Stabilized depth calculations against mobile browser viewport changes and corrected later scroll-based re-intervention thresholds.
+- **Keyboard Controls**: Preserve Space-key activation for focused interactive controls.
+
 ## [2.1.4] - 2026-10-03
 
 ### Fixed
