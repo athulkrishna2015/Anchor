@@ -2,6 +2,11 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.4] - 2026-10-03
+
+### Fixed
+- **Fixed Layout Scrolling**: Instagram DM sidebars, chat lists, and other inner scroll containers are no longer mistaken for the page being at rock bottom, restoring normal downward scrolling.
+
 ## [2.1.3] - 2026-09-27
 
 ### Fixed

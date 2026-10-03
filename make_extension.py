@@ -161,8 +161,8 @@ def publish_release(version, chrome_file, firefox_file):
     """Create the GitHub release and upload both browser packages."""
     tag = f"v{version}"
     notes = (
-        "X Home now uses reversible depth dimming. Depth is mapped to the page's "
-        "actual scroll range and remains stable during mobile browser UI changes."
+        "Instagram DM sidebars, chat lists, and other inner scroll containers no longer "
+        "trigger the page-bottom scroll lock, restoring normal downward scrolling."
     )
     subprocess.run([
         "gh", "release", "create", tag, chrome_file, firefox_file,

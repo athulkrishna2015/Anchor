@@ -302,7 +302,11 @@ var init = function(){
         if (isReelMode) {
             shouldBlock = reelsWatched >= reelLimit;
         } else if (!globalSettings || !globalSettings.reInterventionEnabled || globalSettings.reInterventionMode !== 'scroll') {
-            shouldBlock = $(window).scrollTop() >= Math.max(0, document.body.scrollHeight - window.innerHeight);
+            // Fixed layouts can have zero window scroll range; their inner chat/list
+            // containers must not be mistaken for the page being at rock bottom.
+            const documentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+            const maxPageScroll = Math.max(0, documentHeight - window.innerHeight);
+            shouldBlock = maxPageScroll > 0 && $(window).scrollTop() >= maxPageScroll;
         }
         if (shouldBlock) {
             document.documentElement.classList.add('anchor-extension-at-bottom');
