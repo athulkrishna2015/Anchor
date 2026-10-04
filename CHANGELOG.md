@@ -2,7 +2,7 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
-## [2.1.6] - 2026-10-04
+## [2.1.7] - 2026-10-04
 
 ### Fixed
 - **Reel Limit on Desktop Feeds**: Short-video counting now follows the reel actually in view instead of relying on URL changes. Desktop reel feeds swap reels while scrolling without navigating, so the limit was never reached; scrolling is now blocked past the configured reel count on desktop as well as mobile.

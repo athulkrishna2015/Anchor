@@ -156,42 +156,42 @@ function getActiveXVideo() {
 // route-based mobile feeds, where scrolling swaps the reel without a URL change.
 function getActiveReelVideo() {
     const xVideo = isXReelPage() ? getActiveXVideo() : null;
-    if (xVideo) return xVideo;
+    if (xVideo) return { video: xVideo, position: -1 };
     const videos = Array.from(document.querySelectorAll('video'));
     const viewportCenter = window.innerHeight / 2;
     let active = null;
     let activeDistance = Infinity;
+    let activePosition = -1;
     videos.forEach(function(video, position) {
         const rect = video.getBoundingClientRect();
         if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.width === 0 || rect.height === 0) return;
         const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
         if (distance < activeDistance) {
             active = video;
+            activePosition = position;
             activeDistance = distance;
-            video.dataset.anchorReelPosition = String(position);
         }
     });
-    return active;
+    return { video: active, position: activePosition };
 }
 
-function getReelKeyForVideo(video) {
+function getReelKeyForVideo(video, position) {
     if (!video) return "";
     const articleKey = AnchorCore.getReelVideoKey(video);
     if (articleKey && articleKey.indexOf("/status/") >= 0) return articleKey;
+    let permalink = "";
     const link = video.closest('a[href]');
     if (link) {
-        try { return new URL(link.href).pathname; } catch (error) { /* fall through */ }
+        try { permalink = new URL(link.href).pathname; } catch (error) { permalink = ""; }
     }
-    const source = video.currentSrc || video.src || video.poster || "";
-    const position = video.dataset.anchorReelPosition;
-    return source ? "src:" + source : "pos:" + String(position);
+    return AnchorCore.getReelMediaKey(permalink, video.currentSrc || video.src || "", position);
 }
 
 function scanActiveReel() {
     if (!isReelMode) return;
-    const video = getActiveReelVideo();
-    if (!video) return;
-    const key = getReelKeyForVideo(video);
+    const active = getActiveReelVideo();
+    if (!active || !active.video) return;
+    const key = getReelKeyForVideo(active.video, active.position);
     if (!key) return;
 
     if (key !== activeReelKey) {

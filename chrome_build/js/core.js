@@ -272,6 +272,17 @@
         return Math.max(0, Number(nextIndex) || 0) < Math.max(1, Number(limit) || 1);
     }
 
+    // Reels feeds expose their media as ephemeral blob: URLs that are recreated on
+    // every render, so they cannot identify a reel. Prefer a permalink, fall back to
+    // the reel's position in the feed, which stays stable when scrolling back up.
+    function getReelMediaKey(permalink, source, position) {
+        var link = String(permalink || "").trim();
+        if (link) return "link:" + link;
+        var src = String(source || "").trim();
+        if (src && src.indexOf("blob:") !== 0) return "src:" + src;
+        return "vid:" + String(position === undefined || position === null ? 0 : position);
+    }
+
     function getReelVideoKey(video) {
         var article = video.closest('article[data-testid="tweet"], article[role="article"]');
         if (article) {
@@ -306,6 +317,7 @@
         updateReelSequence: updateReelSequence,
         getReelDepthProgress: getReelDepthProgress,
         canAdvanceReel: canAdvanceReel,
+        getReelMediaKey: getReelMediaKey,
         getReelVideoKey: getReelVideoKey
     };
 

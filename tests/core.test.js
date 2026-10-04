@@ -156,6 +156,18 @@ test("reel brightness follows the reel in view and restores on the way up", () =
     expect(core.getReelDepthProgress(3, buffer, limit)).toBeLessThan(core.getReelDepthProgress(5, buffer, limit));
 });
 
+test("reel identity ignores ephemeral blob URLs", () => {
+    // Instagram reels feed: blob src is recreated per render, so it must not be identity
+    expect(core.getReelMediaKey("", "blob:https://www.instagram.com/1a761573-aaa", 6)).toBe("vid:6");
+    expect(core.getReelMediaKey("", "blob:https://www.instagram.com/DIFFERENT", 6)).toBe("vid:6");
+    // stable permalink wins when the site provides one (route-based feeds)
+    expect(core.getReelMediaKey("/reel/ABC123/", "blob:https://x/1", 2)).toBe("link:/reel/ABC123/");
+    // a non-blob media URL is stable enough to identify the reel
+    expect(core.getReelMediaKey("", "https://cdn.example/v.mp4", 3)).toBe("src:https://cdn.example/v.mp4");
+    // same feed position always yields the same key, so scrolling back up matches
+    expect(core.getReelMediaKey("", "", 9)).toBe(core.getReelMediaKey("", "blob:whatever", 9));
+});
+
 test("reel mode reaches full darkness and rock at the configured limit", () => {
     const limit = 6, buffer = 1;
     expect(core.getReelDepthProgress(limit - 1, buffer, limit)).toBe(1);
