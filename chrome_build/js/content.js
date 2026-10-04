@@ -49,7 +49,7 @@ var reelsWatched = 0;
 var reelKeys = [];
 var reelIndex = 0;
 var reelCursor = 0;
-var lastReelTop = null;
+var lastReelOffset = null;
 var activeReelKey = "";
 var lastUrl = window.location.href;
 var depthBottomPixel;
@@ -189,6 +189,19 @@ function getReelKeyForVideo(video, position) {
     return AnchorCore.getReelMediaKey(permalink, video.currentSrc || video.src || "", position);
 }
 
+// How far the reel feed has been scrolled. Reel feeds scroll inside a container
+// (the window itself never moves), and their videos report offsetTop 0, so the
+// only monotonic signal is the scroll offset of the feed's scrolling ancestors.
+function getReelFeedOffset(video) {
+    let offset = window.scrollY || 0;
+    let node = video && video.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+        if (node.scrollTop) offset += node.scrollTop;
+        node = node.parentElement;
+    }
+    return offset;
+}
+
 function scanActiveReel() {
     if (!isReelMode) return;
     const active = getActiveReelVideo();
@@ -199,15 +212,15 @@ function scanActiveReel() {
     if (key !== activeReelKey) {
         // Scroll direction, not the media key, decides which way the cursor moves:
         // these feeds recycle video nodes, so the same key can mean a different reel.
-        // The reel's offset in the feed is used rather than its viewport rect, because
-        // consecutive reels in a feed both sit at the top of the screen when snapped.
-        const top = active.video.offsetTop || Math.round(active.video.getBoundingClientRect().top + (window.scrollY || 0));
+        // Direction comes from the feed's scroll offset rather than the reel's position
+        // in the DOM, because nodes are unmounted as you scroll and offsets stay 0.
+        const feedOffset = getReelFeedOffset(active.video);
         let direction = "none";
-        if (lastReelTop !== null) {
-            if (top > lastReelTop + 4) direction = "down";
-            else if (top < lastReelTop - 4) direction = "up";
+        if (lastReelOffset !== null) {
+            if (feedOffset > lastReelOffset + 4) direction = "down";
+            else if (feedOffset < lastReelOffset - 4) direction = "up";
         }
-        lastReelTop = top;
+        lastReelOffset = feedOffset;
         const next = AnchorCore.advanceReelCursor(reelKeys, reelCursor, key, direction);
         // Refuse to advance beyond the configured reel limit.
         if (next.index > reelIndex && !AnchorCore.canAdvanceReel(next.index, reelLimit)) {
@@ -248,7 +261,7 @@ function startXReelMonitoring() {
     stopXReelMonitoring();
     if (!isReelMode) return;
     activeReelKey = "";
-    lastReelTop = null;
+    lastReelOffset = null;
     reelObserver = new IntersectionObserver(scanActiveReel, { threshold: [0, 0.25, 0.5, 0.75, 1] });
     reelMutationObserver = new MutationObserver(trackXVideos);
     reelMutationObserver.observe(document.body, { childList: true, subtree: true });
@@ -599,7 +612,7 @@ function resetReelTracking() {
     reelKeys = [];
     reelIndex = 0;
     reelCursor = 0;
-    lastReelTop = null;
+    lastReelOffset = null;
     reelsWatched = 0;
     activeReelKey = "";
     activeXVideoKey = "";
