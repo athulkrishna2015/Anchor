@@ -48,6 +48,8 @@ var isReelMode = false;
 var reelsWatched = 0;
 var reelKeys = [];
 var reelIndex = 0;
+var reelCursor = 0;
+var lastReelTop = null;
 var activeReelKey = "";
 var lastUrl = window.location.href;
 var depthBottomPixel;
@@ -195,7 +197,18 @@ function scanActiveReel() {
     if (!key) return;
 
     if (key !== activeReelKey) {
-        const next = AnchorCore.updateReelSequence(reelKeys, key);
+        // Scroll direction, not the media key, decides which way the cursor moves:
+        // these feeds recycle video nodes, so the same key can mean a different reel.
+        // The reel's offset in the feed is used rather than its viewport rect, because
+        // consecutive reels in a feed both sit at the top of the screen when snapped.
+        const top = active.video.offsetTop || Math.round(active.video.getBoundingClientRect().top + (window.scrollY || 0));
+        let direction = "none";
+        if (lastReelTop !== null) {
+            if (top > lastReelTop + 4) direction = "down";
+            else if (top < lastReelTop - 4) direction = "up";
+        }
+        lastReelTop = top;
+        const next = AnchorCore.advanceReelCursor(reelKeys, reelCursor, key, direction);
         // Refuse to advance beyond the configured reel limit.
         if (next.index > reelIndex && !AnchorCore.canAdvanceReel(next.index, reelLimit)) {
             activeReelKey = key;
@@ -204,9 +217,13 @@ function scanActiveReel() {
         }
         activeReelKey = key;
         reelKeys = next.keys;
+        reelCursor = next.cursor;
         reelIndex = next.index;
         visitedReels = reelKeys.slice();
-        reelsWatched = reelKeys.length;
+        // The limit is judged on the furthest reel reached, so scrolling back up
+        // restores brightness without handing back already-consumed reels.
+        // reelIndex is 0-based, so the number of reels watched is index + 1.
+        reelsWatched = Math.max(reelsWatched, reelIndex + 1);
         updateReelsUI();
     }
     enforceReelLimit();
@@ -231,6 +248,7 @@ function startXReelMonitoring() {
     stopXReelMonitoring();
     if (!isReelMode) return;
     activeReelKey = "";
+    lastReelTop = null;
     reelObserver = new IntersectionObserver(scanActiveReel, { threshold: [0, 0.25, 0.5, 0.75, 1] });
     reelMutationObserver = new MutationObserver(trackXVideos);
     reelMutationObserver.observe(document.body, { childList: true, subtree: true });
@@ -580,6 +598,9 @@ function updateReelsUI() {
 function resetReelTracking() {
     reelKeys = [];
     reelIndex = 0;
+    reelCursor = 0;
+    lastReelTop = null;
+    reelsWatched = 0;
     activeReelKey = "";
     activeXVideoKey = "";
 }

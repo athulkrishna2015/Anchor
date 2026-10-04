@@ -272,6 +272,29 @@
         return Math.max(0, Number(nextIndex) || 0) < Math.max(1, Number(limit) || 1);
     }
 
+    // Reels feeds unmount and recycle their video nodes as you scroll, so a media key
+    // can refer to a different reel over time and cannot be trusted on its own. Move a
+    // cursor through the visited history using scroll direction, which keeps scrolling
+    // up restoring brightness to the exact reel that was left behind.
+    function advanceReelCursor(keys, cursor, key, direction) {
+        var history = (keys || []).slice();
+        var at = Math.max(0, Number(cursor) || 0);
+        var existing = key ? history.indexOf(key) : -1;
+        var next;
+        if (direction === "down") {
+            next = existing > at ? existing : at + 1;
+        } else if (direction === "up") {
+            next = existing >= 0 && existing < at ? existing : Math.max(0, at - 1);
+        } else if (existing >= 0) {
+            next = existing;
+        } else {
+            next = at;
+        }
+        next = Math.max(0, Math.min(next, history.length));
+        if (existing < 0) history.splice(next, 0, key);
+        return { keys: history, cursor: next, index: next, count: history.length };
+    }
+
     // Reels feeds expose their media as ephemeral blob: URLs that are recreated on
     // every render, so they cannot identify a reel. Prefer a permalink, fall back to
     // the reel's position in the feed, which stays stable when scrolling back up.
@@ -317,6 +340,7 @@
         updateReelSequence: updateReelSequence,
         getReelDepthProgress: getReelDepthProgress,
         canAdvanceReel: canAdvanceReel,
+        advanceReelCursor: advanceReelCursor,
         getReelMediaKey: getReelMediaKey,
         getReelVideoKey: getReelVideoKey
     };

@@ -168,6 +168,38 @@ test("reel identity ignores ephemeral blob URLs", () => {
     expect(core.getReelMediaKey("", "", 9)).toBe(core.getReelMediaKey("", "blob:whatever", 9));
 });
 
+test("reel cursor follows scroll direction when nodes are recycled", () => {
+    // Scrolling down walks forward through the visited history (index is 0-based,
+    // so the first reel is index 0 and stays fully bright).
+    let s = { keys: [], cursor: 0 };
+    s = core.advanceReelCursor(s.keys, s.cursor, "link:/reel/A/", "down");
+    expect(s.index).toBe(0);
+    s = core.advanceReelCursor(s.keys, s.cursor, "link:/reel/B/", "down");
+    expect(s.index).toBe(1);
+    s = core.advanceReelCursor(s.keys, s.cursor, "link:/reel/C/", "down");
+    expect(s.index).toBe(2);
+    // Scrolling back up walks back over the same reels and restores brightness.
+    s = core.advanceReelCursor(s.keys, s.cursor, "link:/reel/B/", "up");
+    expect(s.index).toBe(1);
+    s = core.advanceReelCursor(s.keys, s.cursor, "link:/reel/A/", "up");
+    expect(s.index).toBe(0);
+    // Never walks above the first reel, so the top stays fully bright.
+    s = core.advanceReelCursor(s.keys, s.cursor, "vid:0", "up");
+    expect(s.index).toBe(0);
+});
+
+test("reel cursor restores position even when recycled keys repeat", () => {
+    // Instagram unmounts old video nodes, so "vid:3" can be a different reel later.
+    let s = { keys: [], cursor: 0 };
+    ["vid:0", "vid:1", "vid:2"].forEach(k => { s = core.advanceReelCursor(s.keys, s.cursor, k, "down"); });
+    expect(s.index).toBe(2);
+    // Same key seen again on the way up: geometry decides, so we step back one reel.
+    s = core.advanceReelCursor(s.keys, s.cursor, "vid:1", "up");
+    expect(s.index).toBe(1);
+    s = core.advanceReelCursor(s.keys, s.cursor, "vid:0", "up");
+    expect(s.index).toBe(0);
+});
+
 test("reel mode reaches full darkness and rock at the configured limit", () => {
     const limit = 6, buffer = 1;
     expect(core.getReelDepthProgress(limit - 1, buffer, limit)).toBe(1);
