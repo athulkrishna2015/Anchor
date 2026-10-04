@@ -205,18 +205,15 @@ var init = function(){
 
 	depthBottomPixel = meterToPixel(depthBottomMeters);
 	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
-	var depthDocumentHeight = 0;
-	var depthPageScrollRange = 0;
 	function getLayoutViewportHeight() {
 		return document.documentElement.clientHeight || window.innerHeight;
 	}
 	function getDepthPageScrollRange() {
+		// Always measure live. Caching this is unsafe: an early measurement taken
+		// before the page finishes laying out yields a tiny range, which clamps
+		// scrolling almost immediately and makes the page appear stuck.
 		var documentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-		if (documentHeight !== depthDocumentHeight) {
-			depthDocumentHeight = documentHeight;
-			depthPageScrollRange = Math.max(0, documentHeight - getLayoutViewportHeight());
-		}
-		return depthPageScrollRange;
+		return Math.max(0, documentHeight - getLayoutViewportHeight());
 	}
 
 	// Create elements
@@ -239,15 +236,12 @@ var init = function(){
 	}
 
     function attachScrollListener() {
-        var ticking = false;
         var $window = $(window);
         var $anchor = $(".anchor-extension");
         var $sea = $(".sea");
         var $marker = $(".marker");
 
-        $window.off('scroll.anchorExtension').on('scroll.anchorExtension', function(e){
-            if (!ticking) {
-                window.requestAnimationFrame(function() {
+        var scheduler = AnchorCore.createFrameScheduler(function() {
                     var s = $window.scrollTop();
                     var docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
 
@@ -256,8 +250,6 @@ var init = function(){
                     }
                     // On long pages stop at the configured depth; on shorter pages
                     // scale depth to the document's actual bottom.
-                    // Cache the range against document growth, not every mobile
-                    // browser-toolbar viewport resize during a scroll gesture.
                     var pageScrollRange = getDepthPageScrollRange();
                     var depthState = AnchorCore.getDepthScrollState(s, pageScrollRange, depthBottomPixel);
                     var maxScroll = depthState.limit;
@@ -304,11 +296,10 @@ var init = function(){
                     $marker.css({"transform": "translate(0, " + pos + "px)"});
                     var m = Math.round(virtualScroll / 100) / 10;
                     $marker.find("span").text(m + 'm');
+        });
 
-                    ticking = false;
-                });
-                ticking = true;
-            }
+        $window.off('scroll.anchorExtension').on('scroll.anchorExtension', function() {
+            scheduler.request();
         });
     }
 
@@ -713,6 +704,8 @@ function runAnchorIntervention(settings, onComplete) {
             // The visit window and the next check-in use the same selected duration.
             settings.anchorBypassTime = selectedMins;
             settings.reInterventionInterval = selectedMins;
+            // Persist it so reloads and new tabs keep the chosen duration.
+            rememberVisitInterval(settings, selectedMins);
             clearReInterventionState(reInterventionStorageKey(settings));
             chrome.runtime.sendMessage({
                 type: "bypassSuccessCustom",
@@ -968,6 +961,35 @@ function readReInterventionState(key) {
     }
 }
 
+function visitIntervalStorageKey(settings) {
+    const domain = AnchorCore.normalizeDomain(settings.configuredDomain || window.location.hostname);
+    return "anchor_visitInterval_" + domain;
+}
+
+// The timed-visit slider duration must survive reloads and new tabs, otherwise the
+// re-intervention quietly falls back to the default interval.
+function rememberVisitInterval(settings, minutes) {
+    const value = Math.max(1, Math.round(Number(minutes) || 0));
+    if (!value || !chrome.storage || !chrome.storage.local) return;
+    try {
+        chrome.storage.local.set({ [visitIntervalStorageKey(settings)]: value });
+    } catch (error) {}
+}
+
+function readRememberedVisitInterval(settings, callback) {
+    if (!chrome.storage || !chrome.storage.local) { callback(null); return; }
+    const key = visitIntervalStorageKey(settings);
+    try {
+        chrome.storage.local.get(key, function(result) {
+            if (chrome.runtime.lastError) { callback(null); return; }
+            const value = Number(result && result[key]);
+            callback(isFinite(value) && value > 0 ? value : null);
+        });
+    } catch (error) {
+        callback(null);
+    }
+}
+
 function writeReInterventionState(key, state) {
     try {
         sessionStorage.setItem(key, JSON.stringify(state));
@@ -1045,25 +1067,19 @@ function startReInterventionTimer(settings) {
     }
 
     const countMode = settings.reInterventionCountMode === "wallClock" ? "wallClock" : "active";
-    const intervalMs = Math.max(1, Number(settings.reInterventionInterval) || 10) * 60 * 1000;
     const stored = readReInterventionState(storageKey);
-    const now = Date.now();
-    let remainingMs = intervalMs;
-    let deadline = now + intervalMs;
+    const hasStored = Boolean(stored && stored.countMode === countMode);
+    const cooldown = settings.activeCooldownRemainingMs;
+    const hasCooldown = cooldown !== null && cooldown !== undefined && isFinite(Number(cooldown));
 
-    if (stored && stored.countMode === countMode) {
-        remainingMs = Math.max(0, Number(stored.remainingMs) || 0);
-        deadline = Number(stored.deadline) || now + remainingMs;
-    } else if (Number.isFinite(settings.activeCooldownRemainingMs)) {
-        remainingMs = Math.max(0, settings.activeCooldownRemainingMs);
-        deadline = now + remainingMs;
-    }
+    function begin(remainingMs, deadline) {
 
     function finish() {
         clearReInterventionTimer();
         clearReInterventionState(storageKey);
         if ($("body").length && !$("body").hasClass("anchor-extension-active")) runReIntervention(settings);
     }
+
 
     if (countMode === "wallClock") {
         let timeoutId = null;
@@ -1125,6 +1141,29 @@ function startReInterventionTimer(settings) {
             document.removeEventListener("visibilitychange", handleHidden);
         }
     };
+    }
+
+    if (hasStored || hasCooldown) {
+        const now = Date.now();
+        const delay = AnchorCore.getReInterventionDelayMs({
+            hasStored: hasStored,
+            storedRemainingMs: hasStored ? stored.remainingMs : null,
+            hasActiveCooldown: hasCooldown,
+            activeCooldownRemainingMs: cooldown,
+            intervalMinutes: settings.reInterventionInterval
+        });
+        const deadline = hasStored ? (Number(stored.deadline) || now + delay) : now + delay;
+        begin(delay, deadline);
+        return;
+    }
+
+    readRememberedVisitInterval(settings, function(rememberedMinutes) {
+        const delay = AnchorCore.getReInterventionDelayMs({
+            rememberedMinutes: rememberedMinutes,
+            intervalMinutes: settings.reInterventionInterval
+        });
+        begin(delay, Date.now() + delay);
+    });
 }
 
 function getAnchorNavigationType() {

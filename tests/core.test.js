@@ -29,6 +29,54 @@ test("depth limit caps long pages and scales to short pages", () => {
     expect(core.shouldBlockDepthScroll(10000, 20000, 10000, "up")).toBe(false);
 });
 
+test("frame scheduler still renders when animation frames are starved", () => {
+    const timeouts = [];
+    const runtime = {
+        requestAnimationFrame() { /* starved: hidden or occluded tab */ },
+        setTimeout(callback) { timeouts.push(callback); return timeouts.length; },
+        clearTimeout() {}
+    };
+    let renders = 0;
+    const scheduler = core.createFrameScheduler(() => { renders++; }, runtime);
+    scheduler.request();
+    scheduler.request();
+    expect(renders).toBe(0);
+    expect(scheduler.isScheduled()).toBe(true);
+    timeouts[0]();
+    expect(renders).toBe(1);
+    expect(scheduler.isScheduled()).toBe(false);
+});
+
+test("frame scheduler coalesces bursts into a single render", () => {
+    const frames = [];
+    const runtime = {
+        requestAnimationFrame(cb) { frames.push(cb); return frames.length; },
+        setTimeout() { return 0; },
+        clearTimeout() {}
+    };
+    let renders = 0;
+    const scheduler = core.createFrameScheduler(() => { renders++; }, runtime);
+    for (let i = 0; i < 25; i++) scheduler.request();
+    expect(frames).toHaveLength(1);
+    frames[0]();
+    expect(renders).toBe(1);
+});
+
+test("re-intervention honours the timed-visit slider duration", () => {
+    const min = 60 * 1000;
+    // in-progress visit window wins
+    expect(core.getReInterventionDelayMs({ hasActiveCooldown: true, activeCooldownRemainingMs: 5 * min, intervalMinutes: 10 })).toBe(5 * min);
+    // same-tab state wins over everything else
+    expect(core.getReInterventionDelayMs({ hasStored: true, storedRemainingMs: 2 * min, hasActiveCooldown: true, activeCooldownRemainingMs: 9 * min, intervalMinutes: 10 })).toBe(2 * min);
+    // remembered slider duration beats the default interval
+    expect(core.getReInterventionDelayMs({ rememberedMinutes: 25, intervalMinutes: 10 })).toBe(25 * min);
+    // falls back to the configured default
+    expect(core.getReInterventionDelayMs({ intervalMinutes: 10 })).toBe(10 * min);
+    expect(core.getReInterventionDelayMs({})).toBe(10 * min);
+    // expired values must not produce a negative delay
+    expect(core.getReInterventionDelayMs({ hasStored: true, storedRemainingMs: 0 })).toBe(0);
+});
+
 test("nested scroll containers preserve their own directional range", () => {
     expect(core.canScrollElement(20, 400, 100, "down")).toBe(true);
     expect(core.canScrollElement(300, 400, 100, "down")).toBe(false);

@@ -161,8 +161,10 @@ def publish_release(version, chrome_file, firefox_file):
     """Create the GitHub release and upload both browser packages."""
     tag = f"v{version}"
     notes = (
-        "Improved rock-bottom enforcement, nested chat/list scrolling, mobile depth stability, "
-        "and keyboard handling."
+        "Fixes pages appearing stuck when depth was measured from an early cached "
+        "value, keeps the depth overlay tracking scroll when animation frames are "
+        "withheld, and makes re-intervention honour the duration set on the "
+        "timed-visit slider."
     )
     subprocess.run([
         "gh", "release", "create", tag, chrome_file, firefox_file,

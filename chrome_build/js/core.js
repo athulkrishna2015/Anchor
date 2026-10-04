@@ -54,6 +54,60 @@
         };
     }
 
+    function createFrameScheduler(render, runtime) {
+        var view = runtime || (typeof window !== "undefined" ? window : null);
+        var scheduled = false;
+        var fallbackId = null;
+
+        function run() {
+            if (!scheduled) return;
+            scheduled = false;
+            if (fallbackId !== null && view && view.clearTimeout) {
+                view.clearTimeout(fallbackId);
+                fallbackId = null;
+            }
+            render();
+        }
+
+        return {
+            request: function() {
+                if (scheduled) return;
+                scheduled = true;
+                // requestAnimationFrame is not delivered while a tab is hidden or
+                // occluded, so keep a timer fallback to avoid freezing the overlay.
+                if (view && view.requestAnimationFrame) view.requestAnimationFrame(run);
+                if (view && view.setTimeout) fallbackId = view.setTimeout(run, 120);
+            },
+            isScheduled: function() {
+                return scheduled;
+            },
+            cancel: function() {
+                scheduled = false;
+                if (fallbackId !== null && view && view.clearTimeout) {
+                    view.clearTimeout(fallbackId);
+                    fallbackId = null;
+                }
+            }
+        };
+    }
+
+    function getReInterventionDelayMs(state) {
+        var s = state || {};
+        if (s.hasStored) {
+            var storedRemaining = Number(s.storedRemainingMs);
+            if (isFinite(storedRemaining) && storedRemaining >= 0) return storedRemaining;
+        }
+        if (s.hasActiveCooldown) {
+            var cooldown = Number(s.activeCooldownRemainingMs);
+            if (isFinite(cooldown) && cooldown >= 0) return cooldown;
+        }
+        // Honour the duration last chosen on the timed-visit slider for this site
+        // instead of silently reverting to the default interval.
+        var remembered = Number(s.rememberedMinutes);
+        if (isFinite(remembered) && remembered > 0) return Math.round(remembered) * 60 * 1000;
+        return Math.max(1, Number(s.intervalMinutes) || 10) * 60 * 1000;
+    }
+
     function canScrollElement(scrollTop, scrollHeight, clientHeight, direction, tolerance) {
         var top = Number(scrollTop) || 0;
         var max = Math.max(0, (Number(scrollHeight) || 0) - (Number(clientHeight) || 0));
@@ -211,6 +265,8 @@
         hostMatchesDomain: hostMatchesDomain,
         getDepthProgress: getDepthProgress,
         getDepthScrollState: getDepthScrollState,
+        createFrameScheduler: createFrameScheduler,
+        getReInterventionDelayMs: getReInterventionDelayMs,
         canScrollElement: canScrollElement,
         shouldBlockDepthScroll: shouldBlockDepthScroll,
         isReelUrl: isReelUrl,

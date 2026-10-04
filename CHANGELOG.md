@@ -2,6 +2,13 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
+## [2.1.6] - 2026-10-04
+
+### Fixed
+- **Scroll Stall on Changing Pages**: Depth is now measured from the page's live scroll range instead of a value cached on first load. Previously an early measurement could clamp scrolling within a few pixels, making pages appear stuck and preventing any sinking.
+- **Frozen Depth Overlay**: Depth rendering no longer depends solely on `requestAnimationFrame`. A timer fallback keeps the darkness, depth marker, and rock floor tracking the scroll position even when animation frames are withheld.
+- **Timed Visit Slider**: The duration chosen on the slider is now remembered per site and honoured for later re-intervention check-ins instead of silently reverting to the default interval after a reload or in a new tab.
+
 ## [2.1.5] - 2026-10-03
 
 ### Fixed
