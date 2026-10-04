@@ -29,10 +29,7 @@ def transform_manifest_for_firefox(manifest):
     firefox_manifest = json.loads(json.dumps(manifest))
 
     if "background" in firefox_manifest and "service_worker" in firefox_manifest["background"]:
-        firefox_manifest["background"]["scripts"] = [
-            "js/core.js",
-            firefox_manifest["background"]["service_worker"]
-        ]
+        firefox_manifest["background"]["scripts"] = [firefox_manifest["background"]["service_worker"]]
         del firefox_manifest["background"]["service_worker"]
 
     firefox_manifest["browser_specific_settings"] = {
@@ -115,31 +112,32 @@ def sign_firefox(version_override=None):
     env = load_env()
     issuer = env.get("AMO_JWT_ISSUER")
     secret = env.get("AMO_JWT_SECRET")
-
+    
     if not issuer or not secret:
-        raise RuntimeError("AMO_JWT_ISSUER or AMO_JWT_SECRET not found in .env")
+        print("\nError: AMO_JWT_ISSUER or AMO_JWT_SECRET not found in .env")
+        return
 
     manifest = transform_manifest_for_firefox(load_manifest(version_override))
     copy_unpacked_build(FIREFOX_TEMP_BUILD_DIR, manifest)
 
-    print("\nSigning Firefox addon...")
+    print(f"\nSigning Firefox addon...")
     cmd = [
         "bunx", "web-ext", "sign",
         "--channel", "listed",
         "--source-dir", FIREFOX_TEMP_BUILD_DIR,
-        "--artifacts-dir", "./web-ext-artifacts",
-        "--approval-timeout", "0"
+        "--artifacts-dir", "./web-ext-artifacts"
     ]
-    sign_env = os.environ.copy()
-    sign_env["WEB_EXT_API_KEY"] = issuer
-    sign_env["WEB_EXT_API_SECRET"] = secret
-
+    
     try:
+        sign_env = os.environ.copy()
+        sign_env["WEB_EXT_API_KEY"] = issuer
+        sign_env["WEB_EXT_API_SECRET"] = secret
         subprocess.run(cmd, check=True, env=sign_env)
         print("\nSuccessfully signed Firefox addon!")
         artifacts = sorted(Path("web-ext-artifacts").glob("*.xpi"), key=lambda path: path.stat().st_mtime)
         return str(artifacts[-1]) if artifacts else None
     finally:
+        # Cleanup safely
         if os.path.exists(FIREFOX_TEMP_BUILD_DIR):
             shutil.rmtree(FIREFOX_TEMP_BUILD_DIR, ignore_errors=True)
 
@@ -158,15 +156,13 @@ def clean_old_builds(new_chrome_file, new_firefox_file):
                     print(f"Error removing {file}: {e}")
 
 def publish_release(version, chrome_file, firefox_file):
-    """Create the GitHub release and upload both browser packages."""
+    """Create the GitHub release and attach both browser packages."""
     tag = f"v{version}"
-    notes = (
-        "Enforces the short-video reel limit on desktop feeds, restores reel "
-        "brightness when scrolling back up to the first reel, fixes pages appearing "
-        "stuck from an early cached depth measurement, keeps the depth overlay "
-        "tracking scroll when animation frames are withheld, and makes "
-        "re-intervention honour the duration set on the timed-visit slider."
-    )
+    notes = Path("CHANGELOG.md").read_text()
+    start = notes.find(f"## [{version}]")
+    if start >= 0:
+        end = notes.find("\n## [", start + 1)
+        notes = notes[start:end if end >= 0 else None].strip()
     subprocess.run([
         "gh", "release", "create", tag, chrome_file, firefox_file,
         "--title", tag, "--notes", notes

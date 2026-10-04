@@ -3,7 +3,9 @@ $(document).ready(function() {
     let activeTabId = null;
 
     // Load stats and attempts log
-    chrome.storage.local.get(null, function(result) {
+    chrome.storage.local.get([
+        'anchor_stats_total', 'anchor_stats_saved', 'anchor_attempts_log', 'operatingMode', 'exclusions', 'allowlist'
+    ], function(result) {
         let statsSaved = result.anchor_stats_saved || 0;
         let attemptsLog = result.anchor_attempts_log || [];
 
@@ -18,7 +20,9 @@ $(document).ready(function() {
                 try {
                     let url = new URL(tabs[0].url);
                     if (url.protocol.startsWith("http")) {
-                        activeTabDomain = AnchorCore.normalizeDomain(url.hostname);
+                        let domain = url.hostname;
+                        if (domain.startsWith("www.")) domain = domain.substring(4);
+                        activeTabDomain = domain;
                     }
                 } catch(e) {}
             }
@@ -33,7 +37,9 @@ $(document).ready(function() {
             if (activeTabDomain) {
                 // Filter specifically for active domain
                 filteredAttempts = last24hAttempts.filter(l => {
-                    return AnchorCore.normalizeDomain(l.host || "") === activeTabDomain;
+                    let logHost = l.host || "";
+                    if (logHost.startsWith("www.")) logHost = logHost.substring(4);
+                    return logHost === activeTabDomain;
                 });
 
                 // Capitalize first letter of domain for visual elegance (e.g., Instagram)
@@ -51,19 +57,16 @@ $(document).ready(function() {
 
             // Configure Quick Add/Remove Toggle Button
             if (activeTabDomain) {
-                let mode = result.operatingMode || 'allowlist';
+                let mode = result.operatingMode || 'blocklist';
                 let exclusions = result.exclusions || [];
                 let allowlist = result.allowlist || [];
 
-                function findConfiguredDomain(domains) {
-                    return domains.find(function(domain) {
-                        const normalized = AnchorCore.normalizeDomain(domain);
-                        const settings = result["domainSettings_" + normalized] || {};
-                        return normalized && AnchorCore.hostMatchesDomain(activeTabDomain, normalized, settings.scope === "exact");
-                    }) || "";
+                let isAlreadyConfigured = false;
+                if (mode === 'blocklist') {
+                    isAlreadyConfigured = exclusions.includes(activeTabDomain);
+                } else {
+                    isAlreadyConfigured = allowlist.includes(activeTabDomain);
                 }
-                const configuredDomain = findConfiguredDomain(mode === 'blocklist' ? exclusions : allowlist);
-                let isAlreadyConfigured = Boolean(configuredDomain);
 
                 $("#quick-add-area").show();
 
@@ -72,7 +75,7 @@ $(document).ready(function() {
                         // Current site is excluded (unblocked) -> Option to block it again
                         $("#btn-quick-toggle").text(`Block ${activeTabDomain}`);
                         $("#btn-quick-toggle").off('click').click(function() {
-                            let updatedEx = exclusions.filter(d => AnchorCore.normalizeDomain(d) !== configuredDomain);
+                            let updatedEx = exclusions.filter(d => d !== activeTabDomain);
                             chrome.storage.local.set({ exclusions: updatedEx }, function() {
                                 if (activeTabId) chrome.tabs.reload(activeTabId);
                                 window.close();
@@ -94,7 +97,7 @@ $(document).ready(function() {
                         // Current site is blocked (allowlist matched) -> Option to allow it
                         $("#btn-quick-toggle").text(`Allow ${activeTabDomain}`);
                         $("#btn-quick-toggle").off('click').click(function() {
-                            let updatedAl = allowlist.filter(d => AnchorCore.normalizeDomain(d) !== configuredDomain);
+                            let updatedAl = allowlist.filter(d => d !== activeTabDomain);
                             chrome.storage.local.set({ allowlist: updatedAl }, function() {
                                 if (activeTabId) chrome.tabs.reload(activeTabId);
                                 window.close();

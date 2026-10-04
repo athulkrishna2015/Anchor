@@ -3,34 +3,10 @@ $(document).ready(function() {
     let isStrictLocked = false;
     let activeDetailSite = "";
 
-    function numberSetting(selector, fallback, minimum, maximum) {
-        const value = Number($(selector).val());
-        return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback;
-    }
-
-    function normalizeDomains(value) {
-        return value.split("\n")
-            .map(function(domain) { return AnchorCore.normalizeDomain(domain); })
-            .filter(function(domain, index, domains) { return domain && domains.indexOf(domain) === index; });
-    }
-
-    function escapeHtml(value) {
-        return String(value).replace(/[&<>"']/g, function(character) {
-            return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[character];
-        });
-    }
-
-    $(document).on("keydown", "[role='button'], [role='tab']", function(event) {
-        if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            $(this).trigger("click");
-        }
-    });
-
     // Header Navigation Tabs
     $(".nav-links li").click(function() {
-        $(".nav-links li").removeClass("active").attr("aria-selected", "false");
-        $(this).addClass("active").attr("aria-selected", "true");
+        $(".nav-links li").removeClass("active");
+        $(this).addClass("active");
 
         let sectionId = $(this).data("section");
         activeSection = sectionId;
@@ -60,26 +36,26 @@ $(document).ready(function() {
         if (isStrictLocked) return;
 
         let domainsStr = $("#setting--domains-list").val() || "";
-        let parsedDomains = normalizeDomains(domainsStr);
+        let parsedDomains = domainsStr.split("\n")
+            .map(line => line.trim().toLowerCase())
+            .filter(line => line.length > 0);
 
         let storageData = {
             operatingMode: $("#setting--operating-mode").val(),
             anchorEnabled: $("#setting--anchor-enabled").is(":checked"),
             anchorBypassMode: 'cooldown',
             reInterventionEnabled: true,
-            reInterventionCountMode: $("#setting--re-intervention-count-mode").val() === "wallClock" ? "wallClock" : "active",
             closeTabOnLeave: $("#setting--anchor-close-tab").is(":checked"),
 
             scheduleEnabled: $("#setting--schedule-enabled").is(":checked"),
             scheduleStart: $("#setting--schedule-start").val(),
             scheduleEnd: $("#setting--schedule-end").val(),
-            scheduleDays: $("input[name='schedule-day']:checked").map(function() { return Number($(this).val()); }).get(),
             scheduleStrict: $("#setting--schedule-strict").is(":checked"),
 
-            customDepth: numberSetting("#setting--anchor-depth", 10, 1, 1000),
-            scrollBuffer: numberSetting("#setting--anchor-scroll-buffer", 2, 0, 100),
-            reelLimit: numberSetting("#setting--anchor-reel-limit", 10, 1, 500),
-            reelBuffer: numberSetting("#setting--anchor-reel-buffer", 2, 0, 100),
+            customDepth: parseInt($("#setting--anchor-depth").val()) || 10,
+            scrollBuffer: parseInt($("#setting--anchor-scroll-buffer").val()) !== undefined ? parseInt($("#setting--anchor-scroll-buffer").val()) : 2,
+            reelLimit: parseInt($("#setting--anchor-reel-limit").val()) || 10,
+            reelBuffer: parseInt($("#setting--anchor-reel-buffer").val()) !== undefined ? parseInt($("#setting--anchor-reel-buffer").val()) : 2,
             cpuSetting: $("#setting--anchor-cpu").val(),
             showDepthIndicator: $("#setting--depth-indicator-enabled").is(":checked")
         };
@@ -158,8 +134,8 @@ $(document).ready(function() {
     chrome.storage.local.get([
         'exclusions', 'allowlist', 'operatingMode', 'closeTabOnLeave',
         'anchorBypassMode', 'anchorBypassTime',
-        'reInterventionEnabled', 'reInterventionInterval', 'reInterventionCountMode',
-        'scheduleEnabled', 'scheduleStart', 'scheduleEnd', 'scheduleDays', 'scheduleStrict',
+        'reInterventionEnabled', 'reInterventionInterval',
+        'scheduleEnabled', 'scheduleStart', 'scheduleEnd', 'scheduleStrict',
         'anchor_stats_total', 'anchor_stats_saved', 'anchor_stats_opened', 'anchor_attempts_log',
         'customDepth', 'scrollBuffer', 'reelLimit', 'reelBuffer', 'cpuSetting', 'anchorEnabled', 'anchorType', 'showDepthIndicator'
     ], function(result) {
@@ -171,7 +147,6 @@ $(document).ready(function() {
         let schedEnabled = result.scheduleEnabled === undefined ? false : result.scheduleEnabled;
         let schedStart = result.scheduleStart || '09:00';
         let schedEnd = result.scheduleEnd || '17:00';
-        let schedDays = Array.isArray(result.scheduleDays) ? result.scheduleDays.map(Number) : [1, 2, 3, 4, 5];
         let schedStrict = result.scheduleStrict === undefined ? false : result.scheduleStrict;
 
         let customDepth = result.customDepth || 10;
@@ -182,7 +157,6 @@ $(document).ready(function() {
         let anchorEnabled = result.anchorEnabled === undefined ? true : result.anchorEnabled;
         let activeType = result.anchorType || 'basicBreath';
         let showDepthInd = result.showDepthIndicator === undefined ? true : result.showDepthIndicator;
-        let reInterventionCountMode = result.reInterventionCountMode === "wallClock" ? "wallClock" : "active";
 
         updateInterventionTypeUI(activeType);
 
@@ -193,16 +167,12 @@ $(document).ready(function() {
         $("#setting--anchor-enabled").prop("checked", anchorEnabled);
         $("#setting--depth-indicator-enabled").prop("checked", showDepthInd);
         $("#setting--anchor-close-tab").prop("checked", closeTab);
-        $("#setting--re-intervention-count-mode").val(reInterventionCountMode);
 
 
 
         $("#setting--schedule-enabled").prop("checked", schedEnabled);
         $("#setting--schedule-start").val(schedStart);
         $("#setting--schedule-end").val(schedEnd);
-        $("input[name='schedule-day']").each(function() {
-            $(this).prop("checked", schedDays.includes(Number($(this).val())));
-        });
         $("#setting--schedule-strict").prop("checked", schedStrict);
 
         $("#setting--anchor-depth").val(customDepth);
@@ -233,11 +203,12 @@ $(document).ready(function() {
                 inSchedule = currentTimeVal >= startTimeVal || currentTimeVal <= endTimeVal;
             }
             
-            if (inSchedule && schedDays.includes(now.getDay())) {
+            if (inSchedule) {
                 isStrictLocked = true;
                 $("#strict-warning-banner").show();
                 $("input, select, textarea, button").prop("disabled", true);
-                $("#btn-back-to-overview").prop("disabled", false);
+                $("#btn-back-to-overview").prop("disabled", false); // Keep navigation enabled
+                console.log("Strict focus schedule active. Modifications locked.");
             }
         }
 
@@ -287,8 +258,8 @@ $(document).ready(function() {
 
         let siteStats = {};
         attemptsLog.forEach(log => {
-            let site = AnchorCore.normalizeDomain(log.host || "");
-            if (!site) return;
+            let site = log.host || "";
+            if (site.startsWith("www.")) site = site.substring(4);
             
             if (!siteStats[site]) {
                 siteStats[site] = { total: 0, saved: 0 };
@@ -303,7 +274,8 @@ $(document).ready(function() {
         let mode = result.operatingMode || 'allowlist';
         if (mode === 'allowlist' && result.allowlist) {
             result.allowlist.forEach(site => {
-                let cleanSite = AnchorCore.normalizeDomain(site);
+                let cleanSite = site.trim().toLowerCase();
+                if (cleanSite.startsWith("www.")) cleanSite = cleanSite.substring(4);
                 if (cleanSite && !siteStats[cleanSite]) {
                     siteStats[cleanSite] = { total: 0, saved: 0 };
                 }
@@ -319,14 +291,12 @@ $(document).ready(function() {
                 let stats = siteStats[site];
                 let savedMin = stats.saved * 3;
                 let capitalizedDomain = site.charAt(0).toUpperCase() + site.slice(1).split('.')[0];
-                const safeSite = escapeHtml(site);
-                const safeName = escapeHtml(capitalizedDomain);
 
                 breakdownList.append(`
-                    <div class="website-item" data-site="${safeSite}">
+                    <div class="website-item" data-site="${site}">
                         <div class="website-item-left">
-                            <span class="website-icon" style="display:inline-flex; align-items:center; justify-content:center;"><img src="icon.png" style="width:20px; height:20px; border-radius:3px; display:block;" /></span>
-                            <span class="website-name" style="margin-left:8px;">${safeName}</span>
+                            <span class="website-icon" style="display:inline-flex; align-items:center; justify-content:center;"><img src="https://www.google.com/s2/favicons?sz=64&domain=${site}" style="width:20px; height:20px; border-radius:3px; display:block;" /></span>
+                            <span class="website-name" style="margin-left:8px;">${capitalizedDomain}</span>
                         </div>
                         <div class="website-item-right">
                             <span class="website-saved-val">${savedMin} mins saved</span>
@@ -341,23 +311,24 @@ $(document).ready(function() {
     // Search bar functionality to add websites on Enter
     $("#website-search-input").keypress(function(e) {
         if (e.which === 13) {
-            let site = AnchorCore.normalizeDomain($(this).val());
-
-            if (site) {
+            let site = $(this).val().trim().toLowerCase();
+            if (site.startsWith("www.")) site = site.substring(4);
+            
+            if (site.length > 0) {
                 chrome.storage.local.get(['operatingMode', 'exclusions', 'allowlist'], function(res) {
                     let mode = res.operatingMode || 'allowlist';
                     let exclusions = res.exclusions || [];
                     let allowlist = res.allowlist || [];
 
                     if (mode === 'allowlist') {
-                        if (!allowlist.some(d => AnchorCore.normalizeDomain(d) === site)) {
+                        if (!allowlist.includes(site)) {
                             allowlist.push(site);
                             chrome.storage.local.set({ allowlist: allowlist }, reloadOverview);
                         }
                     } else {
                         // In blocklist, everything is blocked EXCEPT exclusions. 
                         // To block a site, we remove it from exclusions list.
-                        if (exclusions.some(d => AnchorCore.normalizeDomain(d) === site)) {
+                        if (exclusions.includes(site)) {
                             let updatedEx = exclusions.filter(d => d !== site);
                             chrome.storage.local.set({ exclusions: updatedEx }, reloadOverview);
                         } else {
@@ -389,13 +360,14 @@ $(document).ready(function() {
 
         let capitalizedDomain = site.charAt(0).toUpperCase() + site.slice(1).split('.')[0];
         $("#detail-site-title").text(capitalizedDomain);
-        $("#detail-site-icon").html(`<img src="icon.png" style="width:28px; height:28px; border-radius:4px; display:block;" />`);
+        $("#detail-site-icon").html(`<img src="https://www.google.com/s2/favicons?sz=64&domain=${site}" style="width:28px; height:28px; border-radius:4px; display:block;" />`);
 
         // Load stats for this website
         chrome.storage.local.get(['anchor_attempts_log'], function(result) {
             let log = result.anchor_attempts_log || [];
             let siteAttempts = log.filter(l => {
-                let logHost = AnchorCore.normalizeDomain(l.host || "");
+                let logHost = l.host || "";
+                if (logHost.startsWith("www.")) logHost = logHost.substring(4);
                 return logHost === site;
             });
 
@@ -443,14 +415,14 @@ $(document).ready(function() {
                 let allowlist = res.allowlist || [];
 
                 if (mode === 'allowlist') {
-                    let updatedAl = allowlist.filter(d => AnchorCore.normalizeDomain(d) !== activeDetailSite);
+                    let updatedAl = allowlist.filter(d => d !== activeDetailSite);
                     chrome.storage.local.set({ allowlist: updatedAl }, function() {
                         $("#btn-back-to-overview").click();
                         reloadOverview();
                     });
                 } else {
                     // In blocklist, we stop blocking it by adding it to exclusions.
-                    if (!exclusions.some(d => AnchorCore.normalizeDomain(d) === activeDetailSite)) {
+                    if (!exclusions.includes(activeDetailSite)) {
                         exclusions.push(activeDetailSite);
                         chrome.storage.local.set({ exclusions: exclusions }, function() {
                             $("#btn-back-to-overview").click();
@@ -466,23 +438,19 @@ $(document).ready(function() {
     $("#btn-open-site-modal").click(function() {
         // Load settings and overrides for the active site
         let overrideKey = "domainSettings_" + activeDetailSite;
-        chrome.storage.local.get(['anchorEnabled', 'anchorDuration', 'reInterventionEnabled', 'reInterventionInterval', 'reInterventionCountMode', overrideKey], function(result) {
+        chrome.storage.local.get(['anchorEnabled', 'anchorDuration', 'reInterventionEnabled', 'reInterventionInterval', overrideKey], function(result) {
             let overrides = result[overrideKey] || {};
 
             let isAnchorEnabled = overrides.anchorEnabled !== undefined ? overrides.anchorEnabled : (result.anchorEnabled === undefined ? true : result.anchorEnabled);
-            let durationVal = overrides.anchorDuration !== undefined ? overrides.anchorDuration : (result.anchorDuration || 5);
+            let durationVal = overrides.anchorDuration !== undefined ? overrides.anchorDuration : (result.anchorDuration || 6);
             let isReEnabled = overrides.reInterventionEnabled !== undefined ? overrides.reInterventionEnabled : true;
-            let intervalVal = overrides.reInterventionInterval !== undefined ? overrides.reInterventionInterval : (result.reInterventionInterval || 10);
-            let countMode = overrides.reInterventionCountMode !== undefined
-                ? overrides.reInterventionCountMode
-                : result.reInterventionCountMode;
-            countMode = countMode === "wallClock" ? "wallClock" : "active";
+            let intervalVal = overrides.reInterventionInterval !== undefined ? overrides.reInterventionInterval : (result.reInterventionInterval || 15);
             let isSinkingEnabled = overrides.sinkingEnabled !== undefined ? overrides.sinkingEnabled : true;
 
             $("#modal-override-anchor-enabled").prop("checked", isAnchorEnabled);
 
             // Populate duration: if not a preset value, select Custom and show input
-            const presets = ["2", "5", "12", "20"];
+            const presets = ["2", "6", "12", "20"];
             if (presets.includes(String(durationVal))) {
                 $("#modal-override-anchor-duration").val(durationVal);
                 $("#modal-override-anchor-duration-custom-wrap").hide();
@@ -495,7 +463,6 @@ $(document).ready(function() {
 
             $("#modal-override-re-enabled").prop("checked", isReEnabled);
             $("#modal-override-re-interval").val(intervalVal);
-            $("#modal-override-re-count-mode").val(countMode);
             $("#modal-override-sinking-enabled").prop("checked", isSinkingEnabled);
 
             if (isReEnabled) {
@@ -504,8 +471,7 @@ $(document).ready(function() {
                 $("#modal-re-interval-row").hide();
             }
 
-            $("#domain-modal").css("display", "flex").attr("aria-hidden", "false");
-            $("#domain-modal .modal-card").attr("tabindex", "-1").trigger("focus");
+            $("#domain-modal").css("display", "flex");
         });
     });
 
@@ -531,7 +497,7 @@ $(document).ready(function() {
     // Close overrides modal
     $("#close-modal-btn, #domain-modal").click(function(e) {
         if (e.target === this) {
-            $("#domain-modal").hide().attr("aria-hidden", "true");
+            $("#domain-modal").hide();
         }
     });
 
@@ -550,16 +516,15 @@ $(document).ready(function() {
                 let customVal = parseInt($("#modal-override-anchor-duration-custom").val());
                 overrides.anchorDuration = (!isNaN(customVal) && customVal >= 21) ? Math.min(customVal, 300) : 30;
             } else {
-                overrides.anchorDuration = parseInt(durationSelect) || 5;
+                overrides.anchorDuration = parseInt(durationSelect) || 6;
             }
 
             overrides.reInterventionEnabled = $("#modal-override-re-enabled").is(":checked");
-            overrides.reInterventionInterval = numberSetting("#modal-override-re-interval", 10, 1, 1440);
-            overrides.reInterventionCountMode = $("#modal-override-re-count-mode").val() === "wallClock" ? "wallClock" : "active";
+            overrides.reInterventionInterval = parseInt($("#modal-override-re-interval").val()) || 15;
             overrides.sinkingEnabled = $("#modal-override-sinking-enabled").is(":checked");
 
             chrome.storage.local.set({ [overrideKey]: overrides }, function() {
-                $("#domain-modal").hide().attr("aria-hidden", "true");
+                $("#domain-modal").hide();
                 showToast();
             });
         });
@@ -571,7 +536,7 @@ $(document).ready(function() {
 
         let overrideKey = "domainSettings_" + activeDetailSite;
         chrome.storage.local.remove(overrideKey, function() {
-            $("#domain-modal").hide().attr("aria-hidden", "true");
+            $("#domain-modal").hide();
             showToast();
         });
     });
@@ -584,14 +549,13 @@ $(document).ready(function() {
             let scopeVal = overrides.scope || "subdomains";
             
             $(`input[name="scope-rule"][value="${scopeVal}"]`).prop("checked", true);
-            $("#scope-modal").css("display", "flex").attr("aria-hidden", "false");
-            $("#scope-modal .modal-card").attr("tabindex", "-1").trigger("focus");
+            $("#scope-modal").css("display", "flex");
         });
     });
 
     $("#close-scope-modal-btn, #scope-modal").click(function(e) {
         if (e.target === this) {
-            $("#scope-modal").hide().attr("aria-hidden", "true");
+            $("#scope-modal").hide();
         }
     });
 
@@ -606,7 +570,7 @@ $(document).ready(function() {
             overrides.scope = selectedScope;
             
             chrome.storage.local.set({ [overrideKey]: overrides }, function() {
-                $("#scope-modal").hide().attr("aria-hidden", "true");
+                $("#scope-modal").hide();
                 showToast();
             });
         });
@@ -670,9 +634,9 @@ $(document).ready(function() {
 
     function runInterventionPreview(type) {
         // Remove any existing preview overlays
-        $("#anchor-extension-overlay").remove();
+        $("#anchor-overlay").remove();
 
-        let overlay = $('<div id="anchor-extension-overlay"></div>');
+        let overlay = $('<div id="anchor-overlay"></div>');
         let wrapper = $('<div class="anchor-wrapper"></div>');
         overlay.append(wrapper);
         $("body").append(overlay);
@@ -850,8 +814,8 @@ $(document).ready(function() {
         chrome.storage.local.get([
             'exclusions', 'allowlist', 'operatingMode', 'closeTabOnLeave',
             'anchorBypassMode', 'anchorBypassTime',
-            'reInterventionEnabled', 'reInterventionInterval', 'reInterventionCountMode',
-            'scheduleEnabled', 'scheduleStart', 'scheduleEnd', 'scheduleDays', 'scheduleStrict',
+            'reInterventionEnabled', 'reInterventionInterval',
+            'scheduleEnabled', 'scheduleStart', 'scheduleEnd', 'scheduleStrict',
             'anchor_stats_total', 'anchor_stats_saved', 'anchor_stats_opened', 'anchor_attempts_log',
             'customDepth', 'scrollBuffer', 'reelLimit', 'reelBuffer', 'cpuSetting', 'anchorEnabled', 'anchorType', 'showDepthIndicator'
         ], function(result) {
@@ -860,12 +824,6 @@ $(document).ready(function() {
             let allowlist = result.allowlist || [];
             let activeType = result.anchorType || 'basicBreath';
             let showDepthInd = result.showDepthIndicator === undefined ? true : result.showDepthIndicator;
-            let reInterventionCountMode = result.reInterventionCountMode === "wallClock" ? "wallClock" : "active";
-            let schedDays = Array.isArray(result.scheduleDays) ? result.scheduleDays.map(Number) : [1, 2, 3, 4, 5];
-            let schedEnabled = result.scheduleEnabled === true;
-            let schedStart = result.scheduleStart || "09:00";
-            let schedEnd = result.scheduleEnd || "17:00";
-            let schedStrict = result.scheduleStrict === true;
             
             // Re-populate domains list textarea if not editing
             if (!$("#setting--domains-list").is(":focus")) {
@@ -873,15 +831,6 @@ $(document).ready(function() {
             }
             
             $("#setting--depth-indicator-enabled").prop("checked", showDepthInd);
-            $("input[name='schedule-day']").each(function() {
-                $(this).prop("checked", schedDays.includes(Number($(this).val())));
-            });
-            $("#setting--schedule-enabled").prop("checked", schedEnabled);
-            $("#setting--schedule-start").val(schedStart);
-            $("#setting--schedule-end").val(schedEnd);
-            $("#setting--schedule-strict").prop("checked", schedStrict);
-            $("#schedule-sub-panel").css("display", schedEnabled ? "flex" : "none");
-            $("#setting--re-intervention-count-mode").val(reInterventionCountMode);
             updateInterventionTypeUI(activeType);
             
             // Render Overview statistics
@@ -891,7 +840,8 @@ $(document).ready(function() {
             if (activeDetailSite) {
                 let log = result.anchor_attempts_log || [];
                 let siteAttempts = log.filter(l => {
-                    let logHost = AnchorCore.normalizeDomain(l.host || "");
+                    let logHost = l.host || "";
+                    if (logHost.startsWith("www.")) logHost = logHost.substring(4);
                     return logHost === activeDetailSite;
                 });
 
@@ -914,12 +864,6 @@ $(document).ready(function() {
             }
         });
     }
-
-    document.addEventListener("keydown", function(event) {
-        if (event.key === "Escape") {
-            $("#domain-modal, #scope-modal").hide().attr("aria-hidden", "true");
-        }
-    });
 
     document.addEventListener("visibilitychange", function() {
         if (!document.hidden) {

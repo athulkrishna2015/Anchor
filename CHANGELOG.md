@@ -4,46 +4,13 @@ All notable changes to the Anchor extension will be documented in this file.
 
 ## [2.1.7] - 2026-10-04
 
-### Fixed
-- **Reel Limit on Desktop Feeds**: Short-video counting now follows the reel actually in view instead of relying on URL changes. Desktop reel feeds swap reels while scrolling without navigating, so the limit was never reached; scrolling is now blocked past the configured reel count on desktop as well as mobile.
-- **Reel Brightness Restoration**: Depth shading now follows the reel currently in view, so swiping or scrolling back up to the first reel restores full brightness. The final allowed reel still reaches full darkness and shows the rock floor.
-- **Scroll Stall on Changing Pages**: Depth is now measured from the page's live scroll range instead of a value cached on first load. Previously an early measurement could clamp scrolling within a few pixels, making pages appear stuck and preventing any sinking.
-- **Frozen Depth Overlay**: Depth rendering no longer depends solely on `requestAnimationFrame`. A timer fallback keeps the darkness, depth marker, and rock floor tracking the scroll position even when animation frames are withheld.
-- **Timed Visit Slider**: The duration chosen on the slider is now remembered per site and honoured for later re-intervention check-ins instead of silently reverting to the default interval after a reload or in a new tab.
+### Changed
+- Restored the extension source to the known-good snapshot at `3c6c29f`.
+- Kept the reel-depth meter and existing route-based reel counting behavior from that snapshot.
+- Bumped the packaged extension version to 2.1.7 for this release.
 
-## [2.1.5] - 2026-10-03
-
-### Fixed
-- **Rock-Bottom Depth Enforcement**: Capped long-page scrolling at the configured depth, synchronized the visible rock floor with the actual limit, and added protection against fast-scroll overshoot.
-- **Nested Scroll Areas**: Preserve scrolling in chat lists and other nested scroll panes, handing off to the page limit only when the nested pane cannot consume the gesture.
-- **Mobile Depth Tracking**: Stabilized depth calculations against mobile browser viewport changes and corrected later scroll-based re-intervention thresholds.
-- **Keyboard Controls**: Preserve Space-key activation for focused interactive controls.
-
-## [2.1.4] - 2026-10-03
-
-### Fixed
-- **Fixed Layout Scrolling**: Instagram DM sidebars, chat lists, and other inner scroll containers are no longer mistaken for the page being at rock bottom, restoring normal downward scrolling.
-
-## [2.1.3] - 2026-09-27
-
-### Fixed
-- **X Home Scrolling**: X Home pages now use normal reversible depth dimming instead of being incorrectly treated as short-video pages.
-- **Page-Relative Depth**: Depth now reaches the configured bottom across short pages and remains stable while mobile browser chrome changes size.
-
-## [2.1.2] - 2026-09-24
-
-### Fixed
-- **Reversible Depth Dimming**: Scrolling back toward the surface now restores the page to full brightness, and the bottom lock no longer traps the scroll position.
-
-## [2.1.1] - 2026-09-24
-
-### Added
-- **Active-Page Timing**: Breath and timed re-intervention countdowns now consume only active-page time by default, pausing when the tab is hidden, unfocused, or the browser loses focus.
-- **Counting Mode Setting**: Added global and per-site choices for whether re-intervention time follows active-page time or wall-clock time.
-
-### Fixed
-- **X Short-Form Video Limit**: Fixed X/Twitter video detection, stable per-post counting, back-navigation handling, autoplay enforcement, and forward navigation blocking beyond the configured reel limit.
-- **Review Fixes**: Hardened domain/settings validation, session-backed tab bypasses, schedule handling, keyboard focus styles, responsive layouts, build signing, and cross-browser packaging.
+### Notes
+- This release does not include the later experimental recycled-video cursor tracking or active-page timer changes.
 
 ## [2.1.0] - 2026-07-13
 
