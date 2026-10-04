@@ -121,6 +121,56 @@ test("counts the initial reel and handles back navigation", () => {
     expect(history).toEqual(["video-1"]);
 });
 
+test("reel sequence tracks position without needing URL changes", () => {
+    let s = core.updateReelSequence([], "reel-1");
+    expect(s).toEqual({ keys: ["reel-1"], index: 0 });
+
+    s = core.updateReelSequence(s.keys, "reel-2");
+    expect(s).toEqual({ keys: ["reel-1", "reel-2"], index: 1 });
+
+    s = core.updateReelSequence(s.keys, "reel-3");
+    expect(s.index).toBe(2);
+    expect(s.keys).toHaveLength(3);
+
+    // scrolling back up returns to an earlier reel instead of appending
+    const back = core.updateReelSequence(s.keys, "reel-1");
+    expect(back.keys).toHaveLength(3);
+    expect(back.index).toBe(0);
+
+    const forwardAgain = core.updateReelSequence(back.keys, "reel-3");
+    expect(forwardAgain.index).toBe(2);
+    expect(forwardAgain.keys).toHaveLength(3);
+});
+
+test("reel brightness follows the reel in view and restores on the way up", () => {
+    const buffer = 2, limit = 10;
+    expect(core.getReelDepthProgress(0, buffer, limit)).toBe(0);   // reel 1, inside buffer
+    expect(core.getReelDepthProgress(1, buffer, limit)).toBe(0);   // reel 2, inside buffer
+    expect(core.getReelDepthProgress(2, buffer, limit)).toBe(0.125);
+    expect(core.getReelDepthProgress(5, buffer, limit)).toBe(0.5);
+    expect(core.getReelDepthProgress(8, buffer, limit)).toBe(0.875);
+    expect(core.getReelDepthProgress(9, buffer, limit)).toBe(1);   // final allowed reel: fully dark
+    expect(core.getReelDepthProgress(12, buffer, limit)).toBe(1);
+    // scrolling back up to the first reel must restore full brightness
+    expect(core.getReelDepthProgress(0, buffer, limit)).toBe(0);
+    expect(core.getReelDepthProgress(3, buffer, limit)).toBeLessThan(core.getReelDepthProgress(5, buffer, limit));
+});
+
+test("reel mode reaches full darkness and rock at the configured limit", () => {
+    const limit = 6, buffer = 1;
+    expect(core.getReelDepthProgress(limit - 1, buffer, limit)).toBe(1);
+    expect(core.getReelDepthProgress(limit - 2, buffer, limit)).toBeCloseTo(0.8, 5);
+    expect(core.getReelDepthProgress(0, buffer, limit)).toBe(0);
+});
+
+test("reel limit blocks movement beyond the configured count", () => {
+    expect(core.canAdvanceReel(9, 10)).toBe(true);
+    expect(core.canAdvanceReel(10, 10)).toBe(false);
+    expect(core.canAdvanceReel(11, 10)).toBe(false);
+    expect(core.canAdvanceReel(0, 1)).toBe(true);
+    expect(core.canAdvanceReel(1, 1)).toBe(false);
+});
+
 test("isPageActive rejects hidden documents", () => {
     const hasFocus = () => true;
     expect(core.isPageActive({

@@ -46,6 +46,9 @@ var scrollBufferMeters = 2;
 var reelBuffer = 2;
 var isReelMode = false;
 var reelsWatched = 0;
+var reelKeys = [];
+var reelIndex = 0;
+var activeReelKey = "";
 var lastUrl = window.location.href;
 var depthBottomPixel;
 var depthStart;
@@ -149,38 +152,90 @@ function getActiveXVideo() {
     return active;
 }
 
-function scanActiveXVideo() {
-    if (!isReelMode || !isXReelPage()) return;
-    const video = getActiveXVideo();
+// Generic active-reel detection: works on desktop scroll feeds as well as
+// route-based mobile feeds, where scrolling swaps the reel without a URL change.
+function getActiveReelVideo() {
+    const xVideo = isXReelPage() ? getActiveXVideo() : null;
+    if (xVideo) return xVideo;
+    const videos = Array.from(document.querySelectorAll('video'));
+    const viewportCenter = window.innerHeight / 2;
+    let active = null;
+    let activeDistance = Infinity;
+    videos.forEach(function(video, position) {
+        const rect = video.getBoundingClientRect();
+        if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.width === 0 || rect.height === 0) return;
+        const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
+        if (distance < activeDistance) {
+            active = video;
+            activeDistance = distance;
+            video.dataset.anchorReelPosition = String(position);
+        }
+    });
+    return active;
+}
+
+function getReelKeyForVideo(video) {
+    if (!video) return "";
+    const articleKey = AnchorCore.getReelVideoKey(video);
+    if (articleKey && articleKey.indexOf("/status/") >= 0) return articleKey;
+    const link = video.closest('a[href]');
+    if (link) {
+        try { return new URL(link.href).pathname; } catch (error) { /* fall through */ }
+    }
+    const source = video.currentSrc || video.src || video.poster || "";
+    const position = video.dataset.anchorReelPosition;
+    return source ? "src:" + source : "pos:" + String(position);
+}
+
+function scanActiveReel() {
+    if (!isReelMode) return;
+    const video = getActiveReelVideo();
     if (!video) return;
-    const key = AnchorCore.getReelVideoKey(video);
-    if (key && key !== activeXVideoKey) {
-        activeXVideoKey = key;
-        visitedReels = AnchorCore.updateReelHistory(visitedReels, key);
-        reelsWatched = visitedReels.length;
+    const key = getReelKeyForVideo(video);
+    if (!key) return;
+
+    if (key !== activeReelKey) {
+        const next = AnchorCore.updateReelSequence(reelKeys, key);
+        // Refuse to advance beyond the configured reel limit.
+        if (next.index > reelIndex && !AnchorCore.canAdvanceReel(next.index, reelLimit)) {
+            activeReelKey = key;
+            enforceReelLimit();
+            return;
+        }
+        activeReelKey = key;
+        reelKeys = next.keys;
+        reelIndex = next.index;
+        visitedReels = reelKeys.slice();
+        reelsWatched = reelKeys.length;
         updateReelsUI();
     }
     enforceReelLimit();
 }
 
+function scanActiveXVideo() {
+    scanActiveReel();
+}
+
 function trackXVideos() {
-    if (!isReelMode || !isXReelPage() || !document.body) return;
-    const videos = document.querySelectorAll('article[data-testid="tweet"] [data-testid="videoPlayer"] video, article[data-testid="tweet"] [data-testid="videoComponent"] video, article[role="article"] [data-testid="videoPlayer"] video, article[role="article"] [data-testid="videoComponent"] video');
-    videos.forEach(function(video) {
-        if (reelObserver) reelObserver.observe(video);
-    });
-    scanActiveXVideo();
+    if (!isReelMode || !document.body) return;
+    if (isXReelPage()) {
+        const videos = document.querySelectorAll('article[data-testid="tweet"] [data-testid="videoPlayer"] video, article[data-testid="tweet"] [data-testid="videoComponent"] video, article[role="article"] [data-testid="videoPlayer"] video, article[role="article"] [data-testid="videoComponent"] video');
+        videos.forEach(function(video) {
+            if (reelObserver) reelObserver.observe(video);
+        });
+    }
+    scanActiveReel();
 }
 
 function startXReelMonitoring() {
     stopXReelMonitoring();
-    if (!isReelMode || !isXReelPage()) return;
-    activeXVideoKey = "";
-    reelObserver = new IntersectionObserver(scanActiveXVideo, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    if (!isReelMode) return;
+    activeReelKey = "";
+    reelObserver = new IntersectionObserver(scanActiveReel, { threshold: [0, 0.25, 0.5, 0.75, 1] });
     reelMutationObserver = new MutationObserver(trackXVideos);
     reelMutationObserver.observe(document.body, { childList: true, subtree: true });
     trackXVideos();
-    reelEnforcementId = window.setInterval(scanActiveXVideo, 500);
+    reelEnforcementId = window.setInterval(scanActiveReel, 500);
 }
 
 var init = function(){
@@ -231,6 +286,7 @@ var init = function(){
 
 	isReelMode = checkReelMode();
 	if (isReelMode) {
+		resetReelTracking();
 		visitedReels = isXReelPage() ? [] : [window.location.href];
 		reelsWatched = isXReelPage() ? 0 : 1;
 	}
@@ -362,6 +418,14 @@ var init = function(){
     let lastTouchY = 0;
     let lastScrollTop = window.scrollY;
     let restoringScroll = false;
+    // One scheduler for the lifetime of the page; request() coalesces bursts.
+    let reelScanScheduler = null;
+    function scheduleReelScan() {
+        if (!reelScanScheduler) {
+            reelScanScheduler = AnchorCore.createFrameScheduler(scanActiveReel, window);
+        }
+        reelScanScheduler.request();
+    }
     function handleScroll() {
         const currentScrollTop = window.scrollY;
         if (!isReelMode && !(globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll')) {
@@ -374,6 +438,11 @@ var init = function(){
                 lastScrollTop = limit;
                 return;
             }
+        }
+        if (isReelMode) {
+            // Desktop reel feeds change the visible reel on scroll without any
+            // navigation, so the active reel has to be resolved while scrolling.
+            scheduleReelScan();
         }
         if (isReelMode && reelsWatched >= reelLimit && currentScrollTop > lastScrollTop && !restoringScroll) {
             restoringScroll = true;
@@ -448,9 +517,11 @@ var init = function(){
         } else if (isReelMode && wasReelMode) {
             visitedReels = AnchorCore.updateReelHistory(visitedReels, window.location.href);
             reelsWatched = visitedReels.length;
+            scanActiveReel();
             updateReelsUI();
         } else if (isReelMode && !wasReelMode) {
             $(window).off('scroll.anchorExtension');
+            resetReelTracking();
             visitedReels = isXReel ? [] : [window.location.href];
             reelsWatched = isXReel ? 0 : 1;
             updateReelsUI();
@@ -469,12 +540,9 @@ var init = function(){
 };
 
 function updateReelsUI() {
-    var progress = 0;
-    if (reelLimit > reelBuffer) {
-        progress = (reelsWatched - reelBuffer) / (reelLimit - reelBuffer);
-    } else {
-        progress = reelsWatched / reelLimit;
-    }
+    // Brightness follows the reel currently in view (not the running total), so
+    // scrolling back up to the first reel restores the page to full brightness.
+    var progress = AnchorCore.getReelDepthProgress(reelIndex, reelBuffer, reelLimit);
     var easedProgress = progress * 0.99;
     
     let markerProgress = progress;
@@ -506,6 +574,14 @@ function updateReelsUI() {
     } else {
         enforceReelLimit();
     }
+}
+
+// Seed the tracked reel state when entering reel mode.
+function resetReelTracking() {
+    reelKeys = [];
+    reelIndex = 0;
+    activeReelKey = "";
+    activeXVideoKey = "";
 }
 
 function meterToPixel(m){

@@ -242,6 +242,36 @@
         return next;
     }
 
+    // Reel sites only change the URL on mobile route-based feeds. On desktop the
+    // active reel changes while scrolling without any navigation, so the visited
+    // sequence and the current position are tracked from the active reel itself.
+    function updateReelSequence(keys, currentKey) {
+        var list = Array.isArray(keys) ? keys.slice() : [];
+        if (!currentKey) return { keys: list, index: Math.max(0, list.length - 1) };
+        var existing = list.indexOf(currentKey);
+        if (existing >= 0) return { keys: list, index: existing };
+        list.push(currentKey);
+        return { keys: list, index: list.length - 1 };
+    }
+
+    // Brightness follows the reel currently in view, so scrolling back up to the
+    // first reel restores the page instead of staying dark. `index` is 0-based but
+    // depth is measured 1-based, matching the previous watched-count behaviour:
+    // the final allowed reel reaches full darkness and shows the rock floor.
+    function getReelDepthProgress(index, buffer, limit) {
+        var position = Math.max(0, Number(index) || 0);
+        var safeBuffer = Math.max(0, Number(buffer) || 0);
+        var safeLimit = Math.max(1, Number(limit) || 1);
+        var viewed = position + 1;
+        if (viewed <= safeBuffer) return 0;
+        if (safeLimit <= safeBuffer) return 1;
+        return Math.min(1, (viewed - safeBuffer) / (safeLimit - safeBuffer));
+    }
+
+    function canAdvanceReel(nextIndex, limit) {
+        return Math.max(0, Number(nextIndex) || 0) < Math.max(1, Number(limit) || 1);
+    }
+
     function getReelVideoKey(video) {
         var article = video.closest('article[data-testid="tweet"], article[role="article"]');
         if (article) {
@@ -273,6 +303,9 @@
         isPageActive: isPageActive,
         createActiveCountdown: createActiveCountdown,
         updateReelHistory: updateReelHistory,
+        updateReelSequence: updateReelSequence,
+        getReelDepthProgress: getReelDepthProgress,
+        canAdvanceReel: canAdvanceReel,
         getReelVideoKey: getReelVideoKey
     };
 
