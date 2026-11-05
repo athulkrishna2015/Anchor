@@ -65,19 +65,30 @@ var init = function(){
 	if ('scrollRestoration' in history) {
 		history.scrollRestoration = 'manual';
 	}
-	window.scrollTo(0, 0);
-	$(window).scrollTop(0);
+	setDocScrollTop(0);
 
 	if (window.location.hash) {
 		setTimeout(function() {
-			window.scrollTo(0, 0);
-			$(window).scrollTop(0);
+			setDocScrollTop(0);
 		}, 50);
 		setTimeout(function() {
-			window.scrollTo(0, 0);
-			$(window).scrollTop(0);
+			setDocScrollTop(0);
 		}, 200);
 	}
+
+	isReelMode = checkReelMode();
+	if (isReelMode) {
+		visitedReels = [window.location.href];
+	}
+	// Early exit before creating duplicate DOM: init() is re-entered after every
+	// re-intervention; re-use the existing anchor DOM & listeners.
+	if (anchorDomInitialized) {
+		if (isReelMode) {
+			updateReelsUI();
+		}
+		return;
+	}
+	anchorDomInitialized = true;
 
 	depthBottomPixel = meterToPixel(depthBottomMeters);
 	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
@@ -95,23 +106,28 @@ var init = function(){
 
 	loadCreatures();
 
-	isReelMode = checkReelMode();
-	if (isReelMode) {
-		visitedReels = [window.location.href];
-	}
-
+    // Capture-phase listeners on window + document catch scrolls on every
+    // scrollable element including document.body (X/Twitter), documentElement,
+    // and any inner feed container. jQuery's $(window).scroll alone never fires there.
+    var scrollListenerAttached = false;
     function attachScrollListener() {
-        var ticking = false;
-        var $window = $(window);
-        var $anchor = $(".anchor");
+        if (scrollListenerAttached) return;
+        scrollListenerAttached = true;
+        var lastUpdate = 0;
         var $sea = $(".sea");
         var $marker = $(".marker");
-
-        $window.off('scroll').scroll(function(e){
-            if (!ticking) {
-                window.requestAnimationFrame(function() {
-                    var s = $window.scrollTop();
-                    var docHeight = document.body.scrollHeight;
+        var $anchor = $(".anchor");
+        // OBU tabs are background/hidden: rAF never fires, so a rAF-driven throttle would stall the sink. Time-based throttle keeps the sink updating on every scroll tick.
+        var handleScroll = function() {
+            var now = Date.now();
+            if (now - lastUpdate <= 32) return;
+            lastUpdate = now;
+            {
+                    var s = getDocScrollTop();
+                    var docHeight = Math.max(
+                        document.documentElement ? document.documentElement.scrollHeight : 0,
+                        document.body ? document.body.scrollHeight : 0
+                    );
 
                     if ($anchor.outerHeight() != docHeight) {
                         $anchor.css({"height": docHeight + "px"});
@@ -128,7 +144,7 @@ var init = function(){
                             if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
                                 // Allow infinite scrolling, color stays deep blue
                             } else {
-                                $window.scrollTop(depthBottomPixel);
+                                setDocScrollTop(depthBottomPixel);
                             }
                         }
                         $sea.css({"opacity": 0.99});
@@ -155,12 +171,18 @@ var init = function(){
                     $marker.css({"transform": "translate(0, " + pos + "px)"});
                     var m = Math.round(s / 100) / 10;
                     $marker.find("span").text(m + 'm');
-
-                    ticking = false;
-                });
-                ticking = true;
             }
-        });
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+        document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+        if (document.documentElement) document.documentElement.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+        if (document.body) document.body.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+
+        // Polling fallback: OBU/headless tabs may never deliver scroll events when
+        // visibilityState is "hidden", so poll the effective scroll position every 250ms.
+        // Cheap when idle, and guarantees the sink advances regardless of event delivery.
+        setInterval(handleScroll, 250);
     }
 
     // Block downward scrolling using capture phase when limit is reached
@@ -175,7 +197,7 @@ var init = function(){
             if (globalSettings && globalSettings.reInterventionEnabled && globalSettings.reInterventionMode === 'scroll') {
                 shouldBlock = false;
             } else {
-                var s = $(window).scrollTop();
+                var s = getDocScrollTop();
                 shouldBlock = s >= depthBottomPixel;
             }
         }
@@ -243,7 +265,6 @@ var init = function(){
                 }
                 updateReelsUI();
             } else if (isReelMode && !wasReelMode) {
-                $(window).off('scroll');
                 visitedReels = [window.location.href];
                 reelsWatched = 0;
                 updateReelsUI();
@@ -298,6 +319,25 @@ function updateReelsUI() {
 function meterToPixel(m){
 	return m * 1000;
 }
+
+// X/Twitter and some app-shell sites scroll on document.body (or an inner
+// container) rather than on documentElement/window, so window.scrollY/$(window).scrollTop()
+// stays 0 forever and the sink never advances. Read the effective scroll position
+// from everywhere that might be scrolling.
+function getDocScrollTop() {
+	var windowVal = (typeof window.scrollY === 'number') ? window.scrollY : 0;
+	var docElVal = document.documentElement ? (document.documentElement.scrollTop || 0) : 0;
+	var bodyVal = document.body ? (document.body.scrollTop || 0) : 0;
+	return Math.max(windowVal, docElVal, bodyVal);
+}
+
+function setDocScrollTop(v) {
+	try { window.scrollTo(0, v); } catch(e) {}
+	if (document.documentElement) document.documentElement.scrollTop = v;
+	if (document.body) document.body.scrollTop = v;
+}
+
+var anchorDomInitialized = false;
 
 function loadCreatures(){
 	var fishCount = 30;
