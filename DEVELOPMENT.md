@@ -80,17 +80,10 @@ To keep the surface at `scrollTop = 0` completely clean, sea creatures start at 
 The timed visit slider and re-intervention loop are enabled by default for all blocked websites. The Customize tab does not expose global toggles for these controls. `background.js` always reports `anchorBypassMode: "cooldown"` and defaults `reInterventionEnabled` to true, while `content.js` uses `reInterventionInterval` as the slider maximum.
 
 ### 5. Sinking Scroll Uses Effective Scroll Position and Capture-Phase Listeners
-Some app-shell sites (e.g. X/Twitter, Instagram, Facebook) scroll on `document.body` or—more commonly—a nested container with `overflow-y:auto/scroll` rather than on `window`, and remote-Chrome/OBU sessions report tabs as `visibilityState: hidden` (which suspends `requestAnimationFrame` and can suppress scroll events). Anchor therefore:
-* tracks the active inner scroller (`activeInnerScroller`) from capture-phase scroll events (`event.target`) and a `findInnerScroller()` scan over `[role="main"], main, article, ul, div` with scrollable overflow;
-* reads the effective scroll position with `getDocScrollTop()` (max of `window.scrollY`, `document.documentElement.scrollTop`, `document.body.scrollTop`, and `activeInnerScroller.scrollTop`) and clamps with `setDocScrollTop()`, which writes all of them;
+Some app-shell sites (e.g. X/Twitter) scroll on `document.body` or a nested container rather than on `window`, and remote-Chrome/OBU sessions report tabs as `visibilityState: hidden` (which suspends `requestAnimationFrame` and can suppress scroll events). Anchor therefore:
+* reads the effective scroll position with `getDocScrollTop()` (max of `window.scrollY`, `document.documentElement.scrollTop`, `document.body.scrollTop`) and clamps with `setDocScrollTop()`, which writes all three;
 * attaches capture-phase `scroll` listeners on window, document, `<html>`, and `<body>` (not jQuery's `$(window).scroll`);
 * throttles the DOM update with a 32 ms `Date.now()` guard instead of `requestAnimationFrame`;
 * runs a 250 ms `setInterval` poll as a fallback so the sink advances even when scroll events never fire (hidden tabs).
 
-`init()` re-creates the sink when its DOM is missing (after a re-intervention wipes `.anchor`), queries `.anchor`/`.sea`/`.marker` fresh on every tick, and removes duplicate `#anchor-blocker` nodes before re-adding, so re-interventions no longer kill the sink.
-
-### 6. Firefox (`browser`) vs Chrome (`chrome`) Runtime
-Firefox exposes Promises via `browser.runtime`, Chrome uses callbacks via `chrome.runtime`. The content script uses `extRuntime()` / `extSendMessage()` / `extLastError()` wrappers so background messaging (`status`, `logAttempt`, `bypassSuccessCustom`, `fetchFavicon`, `closeTab`) works on both. `onboarding.html` is resolved with `runtime.getURL` instead of a relative `tabs.create` URL, and `host_permissions: <all_urls>` is declared so background favicon fetches to `google.com/s2/favicons` are permitted on Firefox MV3 as well as Chrome MV3.
-
-### 7. Reel-mode URL detection
-`checkReelMode()` matches `youtube.com/shorts`, `tiktok.com`, `instagram.com/reel`, and `instagram.com/reels` (plural). The earlier code only checked the singular `instagram.com/reel`, so `/reels/` never entered reel mode and the reel limiter never engaged.
+`init()` is also idempotent (`anchorDomInitialized`) so re-interventions do not duplicate `.anchor`, the sea, the rock, or the depth marker.

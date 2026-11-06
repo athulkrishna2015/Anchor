@@ -2,14 +2,6 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
-## [2.2.0] - 2026-11-06
-
-### Fixed
-- **Firefox/Zen: re-intervention wiping the sink**: `runReIntervention` removed `.anchor` but `init()` early-returned on `anchorDomInitialized`, so after the hourglass check-in the sink never returned. `init()` now re-creates the sink when its DOM is missing, stale jQuery references are queried fresh per scroll tick, and duplicate `#anchor-blocker` nodes are removed before re-adding.
-- **Firefox/Zen: inner feed scrollers (Instagram, Facebook, YouTube Shorts, X)**: the sink now tracks the actual scroll container via capture-phase `scroll` events and a `findInnerScroller()` scan (`[role="main"], main, article, ul, div` with `overflow-y:auto/scroll`). `getDocScrollTop()` / `getDocScrollHeight()` / `setDocScrollTop()` operate on the active inner scroller as well as window/documentElement/body, so depth marker, sea wash, rock, and rock-bottom clamp work on virtualised feeds.
-- **Instagram Reels detection**: `checkReelMode()` now matches `instagram.com/reels` (plural) in addition to `instagram.com/reel`, so the reel limiter actually engages on `/reels/`.
-- **Firefox runtime compatibility**: content script now uses a `browser`/`chrome` agnostic `extSendMessage` / `extLastError` wrapper (Firefox `browser.runtime` returns Promises, Chrome uses callbacks), `onboarding.html` is resolved with `runtime.getURL`, and `host_permissions: <all_urls>` is declared so background favicon fetches work on both browsers.
-
 ## [2.1.8] - 2026-11-05
 
 ### Fixed

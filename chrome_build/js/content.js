@@ -55,43 +55,9 @@ var visitedReels = [];
 
 function checkReelMode() {
     var url = window.location.href;
-    return url.includes('youtube.com/shorts') ||
-           url.includes('tiktok.com') ||
-           url.includes('instagram.com/reel') ||
-           url.includes('instagram.com/reels');
-}
-
-var activeInnerScroller = null;
-var scrollListenersAttached = false;
-
-function findInnerScroller() {
-    var windowVal = (typeof window.scrollY === 'number') ? window.scrollY : 0;
-    var docElVal = document.documentElement ? (document.documentElement.scrollTop || 0) : 0;
-    var bodyVal = document.body ? (document.body.scrollTop || 0) : 0;
-    if (activeInnerScroller && document.contains(activeInnerScroller)) {
-        var innerVal = activeInnerScroller.scrollTop || 0;
-        if (innerVal > Math.max(windowVal, docElVal, bodyVal)) return activeInnerScroller;
-    }
-    // Fallback: scan a few likely containers + any scrollable element (Instagram, YouTube Shorts etc.)
-    var candidates = document.querySelectorAll('[role="main"], main, article, ul, div');
-    var best = null, bestVal = 0;
-    for (var i = 0; i < candidates.length; i++) {
-        var el = candidates[i];
-        if (!el || el.classList.contains('anchor') || el.closest('.anchor') || el.closest('#anchor-overlay')) continue;
-        var cs = null;
-        try { cs = window.getComputedStyle(el); } catch (e) { continue; }
-        var oy = cs.overflowY;
-        if (oy !== 'auto' && oy !== 'scroll') continue;
-        if (el.scrollHeight <= el.clientHeight + 20) continue;
-        var v = el.scrollTop || 0;
-        if (v > bestVal) { bestVal = v; best = el; }
-    }
-    if (best) {
-        activeInnerScroller = best;
-        return best;
-    }
-    if (activeInnerScroller && document.contains(activeInnerScroller)) return activeInnerScroller;
-    return null;
+    return url.includes('youtube.com/shorts') || 
+           url.includes('tiktok.com') || 
+           url.includes('instagram.com/reel');
 }
 
 var init = function(){
@@ -114,13 +80,12 @@ var init = function(){
 	if (isReelMode) {
 		visitedReels = [window.location.href];
 	}
-	// If anchor DOM already exists, reuse it; otherwise (re)create.
-	// runReIntervention wipes .anchor, so re-creation after intervention must work.
-	if ($(".anchor").length > 0 && anchorDomInitialized) {
+	// Early exit before creating duplicate DOM: init() is re-entered after every
+	// re-intervention; re-use the existing anchor DOM & listeners.
+	if (anchorDomInitialized) {
 		if (isReelMode) {
 			updateReelsUI();
 		}
-		if (!scrollListenersAttached) attachScrollListener();
 		return;
 	}
 	anchorDomInitialized = true;
@@ -128,9 +93,7 @@ var init = function(){
 	depthBottomPixel = meterToPixel(depthBottomMeters);
 	depthStart = depthBottomMeters > scrollBufferMeters ? meterToPixel(scrollBufferMeters) : 0;
 
-	// Create elements (clean any prior remnants so re-init's after re-intervention don't duplicate)
-	$(".anchor").remove();
-	$("#anchor-blocker").remove();
+	// Create elements
 	$("html").append('<div class="anchor"></div>');
 	$(".anchor").append('<div class="creatures"></div>');
 	$(".anchor").append('<div class="sea"></div>');
@@ -146,29 +109,25 @@ var init = function(){
     // Capture-phase listeners on window + document catch scrolls on every
     // scrollable element including document.body (X/Twitter), documentElement,
     // and any inner feed container. jQuery's $(window).scroll alone never fires there.
+    var scrollListenerAttached = false;
     function attachScrollListener() {
-        if (scrollListenersAttached) return;
-        scrollListenersAttached = true;
+        if (scrollListenerAttached) return;
+        scrollListenerAttached = true;
         var lastUpdate = 0;
+        var $sea = $(".sea");
+        var $marker = $(".marker");
+        var $anchor = $(".anchor");
         // OBU tabs are background/hidden: rAF never fires, so a rAF-driven throttle would stall the sink. Time-based throttle keeps the sink updating on every scroll tick.
-        var handleScroll = function(e) {
-            // Track inner scroller from the event target
-            if (e && e.target && e.target !== document && e.target !== window && e.target !== document.documentElement && e.target !== document.body) {
-                var t = e.target;
-                if (t.scrollHeight !== undefined && t.scrollHeight > t.clientHeight + 20 && t.scrollTop !== undefined) {
-                    activeInnerScroller = t;
-                }
-            }
+        var handleScroll = function() {
             var now = Date.now();
             if (now - lastUpdate <= 32) return;
             lastUpdate = now;
             {
-                    var $anchor = $(".anchor");
-                    var $sea = $(".sea");
-                    var $marker = $(".marker");
-                    if ($anchor.length === 0) return;
                     var s = getDocScrollTop();
-                    var docHeight = getDocScrollHeight();
+                    var docHeight = Math.max(
+                        document.documentElement ? document.documentElement.scrollHeight : 0,
+                        document.body ? document.body.scrollHeight : 0
+                    );
 
                     if ($anchor.outerHeight() != docHeight) {
                         $anchor.css({"height": docHeight + "px"});
@@ -227,7 +186,6 @@ var init = function(){
     }
 
     // Block downward scrolling using capture phase when limit is reached
-    $("#anchor-blocker").remove();
     $("body").append('<div id="anchor-blocker" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999999999;background:transparent;pointer-events:none;"></div>');
     
     const stopEvent = (e) => { 
@@ -370,78 +328,16 @@ function getDocScrollTop() {
 	var windowVal = (typeof window.scrollY === 'number') ? window.scrollY : 0;
 	var docElVal = document.documentElement ? (document.documentElement.scrollTop || 0) : 0;
 	var bodyVal = document.body ? (document.body.scrollTop || 0) : 0;
-	var best = Math.max(windowVal, docElVal, bodyVal);
-	if (activeInnerScroller && document.contains(activeInnerScroller)) {
-		best = Math.max(best, activeInnerScroller.scrollTop || 0);
-	}
-	// Also consider the currently discovered inner scroller
-	var inner = findInnerScroller();
-	if (inner) {
-		best = Math.max(best, inner.scrollTop || 0);
-	}
-	return best;
-}
-
-function getDocScrollHeight() {
-	var docH = Math.max(
-		document.documentElement ? document.documentElement.scrollHeight : 0,
-		document.body ? document.body.scrollHeight : 0
-	);
-	if (activeInnerScroller && document.contains(activeInnerScroller)) {
-		docH = Math.max(docH, activeInnerScroller.scrollHeight || 0);
-	}
-	var inner = findInnerScroller();
-	if (inner) {
-		docH = Math.max(docH, inner.scrollHeight || 0);
-	}
-	return docH;
+	return Math.max(windowVal, docElVal, bodyVal);
 }
 
 function setDocScrollTop(v) {
 	try { window.scrollTo(0, v); } catch(e) {}
 	if (document.documentElement) document.documentElement.scrollTop = v;
 	if (document.body) document.body.scrollTop = v;
-	if (activeInnerScroller && document.contains(activeInnerScroller)) {
-		try { activeInnerScroller.scrollTop = v; } catch(e) {}
-	}
-	var inner = findInnerScroller();
-	if (inner && inner !== activeInnerScroller) {
-		try { inner.scrollTop = v; } catch(e) {}
-	}
 }
 
 var anchorDomInitialized = false;
-
-function extRuntime() {
-    if (typeof browser !== 'undefined' && browser && browser.runtime) return browser.runtime;
-    if (typeof chrome !== 'undefined' && chrome && chrome.runtime) return chrome.runtime;
-    return null;
-}
-
-function extSendMessage(msg, cb) {
-    var rt = extRuntime();
-    if (!rt) { if (cb) cb(null); return; }
-    try {
-        var p = null;
-        if (typeof browser !== 'undefined' && rt === browser.runtime) {
-            // Firefox: browser.runtime returns a Promise
-            p = rt.sendMessage(msg);
-            if (p && typeof p.then === 'function') {
-                p.then(function(res){ if (cb) cb(res); }).catch(function(err){ if (cb) cb(null, err); });
-                return;
-            }
-        }
-        // Chrome path with callback
-        rt.sendMessage(msg, function(res) { if (cb) cb(res); });
-    } catch (e) { if (cb) cb(null, e); }
-}
-
-function extLastError() {
-    var rt = extRuntime();
-    if (rt && rt.lastError) return rt.lastError;
-    try { if (typeof chrome !== 'undefined' && chrome.runtime && extLastError()) return extLastError(); } catch(e) {}
-    return null;
-}
 
 function loadCreatures(){
 	var fishCount = 30;
@@ -505,7 +401,7 @@ function runAnchorIntervention(settings, onComplete) {
             </div>
         `);
         
-        extSendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
+        chrome.runtime.sendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
             if (response && response.dataUrl) {
                 let img = $(`<img class="anchor-favicon" src="${response.dataUrl}" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />`);
                 $(`#${uniqueId}`).replaceWith(img);
@@ -514,7 +410,7 @@ function runAnchorIntervention(settings, onComplete) {
     }
 
     function logAttempt(action, callback) {
-        extSendMessage({type: "logAttempt", action: action}, function(response) {
+        chrome.runtime.sendMessage({type: "logAttempt", action: action}, function(response) {
             if (callback) callback();
         });
     }
@@ -522,7 +418,7 @@ function runAnchorIntervention(settings, onComplete) {
     function handleCancel() {
         logAttempt('saved');
         if (closeTabOnLeave) {
-            extSendMessage({type: "closeTab"});
+            chrome.runtime.sendMessage({type: "closeTab"});
         } else {
             if (document.referrer) {
                 window.location.href = document.referrer;
@@ -540,7 +436,7 @@ function runAnchorIntervention(settings, onComplete) {
             showCooldownDecisionScreen();
         } else {
             logAttempt('opened');
-            extSendMessage({type: "bypassSuccess"}, function(response) {
+            chrome.runtime.sendMessage({type: "bypassSuccess"}, function(response) {
                 $("body").removeClass("anchor-active");
                 overlay.css("opacity", "0");
                 setTimeout(function() {
@@ -638,7 +534,7 @@ function runAnchorIntervention(settings, onComplete) {
             settings.anchorBypassTime = selectedMins;
             settings.reInterventionInterval = selectedMins;
             
-            extSendMessage({
+            chrome.runtime.sendMessage({
                 type: "bypassSuccessCustom", 
                 durationMinutes: selectedMins
             }, function(response) {
@@ -1073,10 +969,7 @@ function runAnchorIntervention(settings, onComplete) {
 }
 
 function runReIntervention(settings) {
-    anchorDomInitialized = false;
-    activeInnerScroller = null;
     $(".anchor").remove();
-    $("#anchor-blocker").remove();
     $("#anchor-overlay").remove();
 
     let siteName = window.location.hostname;
@@ -1096,7 +989,7 @@ function runReIntervention(settings) {
         </div>
     `);
     
-    extSendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
+    chrome.runtime.sendMessage({type: "fetchFavicon", domain: siteName}, function(response) {
         if (response && response.dataUrl) {
             let img = $(`<img class="anchor-favicon" src="${response.dataUrl}" style="width:48px; height:48px; border-radius:10px; margin:0 auto 24px auto; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:block;" />`);
             $(`#${uniqueId}`).replaceWith(img);
@@ -1108,8 +1001,8 @@ function runReIntervention(settings) {
     $("body").addClass("anchor-active");
 
     function handleCancel() {
-        extSendMessage({type: "logAttempt", action: "saved"}, function() {
-            extSendMessage({type: "closeTab"});
+        chrome.runtime.sendMessage({type: "logAttempt", action: "saved"}, function() {
+            chrome.runtime.sendMessage({type: "closeTab"});
         });
     }
 
@@ -1192,16 +1085,16 @@ function requestStatusWithRetry(retriesLeft, navType) {
     }
 
     console.log("Anchor: Sending status request. URL:", currentUrl, "Retries left:", retriesLeft);
-    extSendMessage({
+    chrome.runtime.sendMessage({
         type: "status",
         url: currentUrl,
         navigationType: navType
     }, function(response) {
         // In Firefox MV3 the service worker can silently return undefined with no
         // lastError while it is still waking up — retry in that case too.
-        if (extLastError() || response === undefined) {
-            if (extLastError()) {
-                console.warn("Anchor: status check error:", extLastError().message);
+        if (chrome.runtime.lastError || response === undefined) {
+            if (chrome.runtime.lastError) {
+                console.warn("Anchor: status check error:", chrome.runtime.lastError.message);
             } else {
                 console.warn("Anchor: status response was undefined (service worker starting). Retrying...");
             }

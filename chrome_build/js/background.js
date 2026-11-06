@@ -378,8 +378,6 @@ chrome.runtime.onInstalled.addListener(function(details) {
     });
 
     if (details.reason === "install") {
-        var onboardingUrl = "onboarding.html";
-        try { onboardingUrl = (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getURL) ? chrome.runtime.getURL("onboarding.html") : onboardingUrl; } catch(e) {}
-        chrome.tabs.create({url: onboardingUrl});
+        chrome.tabs.create({url: "onboarding.html"});
     }
 });
