@@ -78,12 +78,3 @@ To keep the surface at `scrollTop = 0` completely clean, sea creatures start at 
 
 ### 4. Timed Visit Slider and Re-Intervention Defaults
 The timed visit slider and re-intervention loop are enabled by default for all blocked websites. The Customize tab does not expose global toggles for these controls. `background.js` always reports `anchorBypassMode: "cooldown"` and defaults `reInterventionEnabled` to true, while `content.js` uses `reInterventionInterval` as the slider maximum.
-
-### 5. Sinking Scroll Uses Effective Scroll Position and Capture-Phase Listeners
-Some app-shell sites (e.g. X/Twitter) scroll on `document.body` or a nested container rather than on `window`, and remote-Chrome/OBU sessions report tabs as `visibilityState: hidden` (which suspends `requestAnimationFrame` and can suppress scroll events). Anchor therefore:
-* reads the effective scroll position with `getDocScrollTop()` (max of `window.scrollY`, `document.documentElement.scrollTop`, `document.body.scrollTop`) and clamps with `setDocScrollTop()`, which writes all three;
-* attaches capture-phase `scroll` listeners on window, document, `<html>`, and `<body>` (not jQuery's `$(window).scroll`);
-* throttles the DOM update with a 32 ms `Date.now()` guard instead of `requestAnimationFrame`;
-* runs a 250 ms `setInterval` poll as a fallback so the sink advances even when scroll events never fire (hidden tabs).
-
-`init()` is also idempotent (`anchorDomInitialized`) so re-interventions do not duplicate `.anchor`, the sea, the rock, or the depth marker.

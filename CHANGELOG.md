@@ -2,13 +2,6 @@
 
 All notable changes to the Anchor extension will be documented in this file.
 
-## [2.1.8] - 2026-11-05
-
-### Fixed
-- **Sinking scroll broken on app-shell sites**: the depth marker, sea wash, and rock never advanced on sites that scroll an inner container instead of the window (YouTube Shorts, X, Facebook, Reddit). Anchor now reads the effective scroll position (max of `window.scrollY`, `documentElement.scrollTop`, `body.scrollTop`) and captures scroll events on window, document, `<html>` and `<body>` with capture phase.
-- **Sink stalled on hidden/occluded tabs**: the rAF-driven throttle never fired on background tabs (e.g. remote-Chrome/OBU sessions where tabs report `visibilityState: hidden`), freezing the depth meter. Throttling replaced with a 32 ms time-based guard; a 250 ms `setInterval` poll added as a fallback for missed scroll events.
-- **Duplicate anchor DOM on re-intervention**: `init()` ran on every re-intervention and appended duplicate `.anchor`/creatures/listeners. `init()` is now idempotent via an `anchorDomInitialized` flag.
-
 ## [2.1.7] - 2026-10-04
 
 ### Changed
