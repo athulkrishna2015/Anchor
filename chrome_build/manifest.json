@@ -1,17 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Anchor",
-  "version": "2.1.7",
+  "version": "2.2.1",
   "icons": {
-      "128": "icon.png"
+    "128": "icon.png"
   },
   "content_scripts": [
     {
       "matches": [
         "<all_urls>"
       ],
-      "js": ["jquery-3.2.1.js", "js/content.js"],
-      "css": ["main.css"],
+      "js": [
+        "jquery-3.2.1.js",
+        "js/content.js"
+      ],
+      "css": [
+        "main.css"
+      ],
       "run_at": "document_start"
     }
   ],
