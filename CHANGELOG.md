@@ -9,14 +9,6 @@ All notable changes to the Anchor extension will be documented in this file.
 - **Sink stalled on hidden/occluded tabs**: the rAF-driven throttle never fired on background tabs (e.g. remote-Chrome/OBU sessions where tabs report `visibilityState: hidden`), freezing the depth meter. Throttling replaced with a 32 ms time-based guard; a 250 ms `setInterval` poll added as a fallback for missed scroll events.
 - **Duplicate anchor DOM on re-intervention**: `init()` ran on every re-intervention and appended duplicate `.anchor`/creatures/listeners. `init()` is now idempotent via an `anchorDomInitialized` flag.
 
-### Verified (OpenBrowserUse, 2026-11-05)
-- Intervention, anchor injection (sea/creatures/marker/rock), and blocker verified end-to-end on **YouTube feed**, **YouTube Shorts**, **Instagram feed**, **Instagram Reels**, **X (home)**, **Facebook**, **Reddit**, and **TikTok** (`/tiktok.com/explore`).
-- Deep-dive verified on X (marker 1.5m → 9.4m, sea opacity 0 → 0.91, rock spawns above 9m), Facebook (0 → 0.9m, clamped at rock bottom), and Reddit (0 → 1.6m, clamped at rock bottom).
-- TikTok feed itself is served empty to headless sessions (`visibilityState: hidden`), so reel counters are not runtime-verified; the `tiktok.com` branch of `checkReelMode()` and anchor/blocker injection were confirmed.
-
-### Notes
-- Firefox signed artifact published via `web-ext sign` as `web-ext-artifacts/anchor_scroll_reel_blocker-2.1.8.xpi`.
-
 ## [2.1.7] - 2026-10-04
 
 ### Changed
