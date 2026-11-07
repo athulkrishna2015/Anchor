@@ -1,0 +1,102 @@
+name: Release & Firefox
+
+on:
+  push:
+    tags: ['v*']
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Sign & upload to Firefox Add-ons (AMO)'
+        required: false
+        default: 'true'
+      channel:
+        description: 'AMO channel'
+        required: false
+        default: 'listed'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web-ext
+        run: npm install -g web-ext
+
+      - name: Validate version matches tag (on tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          manifest_ver=$(python3 -c "import json; print(json.load(open('chrome_build/manifest.json'))['version'])")
+          echo "tag=$tag manifest=$manifest_ver"
+          if [ "$tag" != "$manifest_ver" ]; then
+            echo "::error::Tag v$tag does not match manifest.json version $manifest_ver"
+            exit 1
+          fi
+
+      - name: Build unsigned Chrome + Firefox packages
+        run: python3 make_extension.py
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ github.ref_name }}
+          path: |
+            anchor_chrome_v*.zip
+            anchor_firefox_v*.xpi
+            firefox_build/**
+
+      - name: Sign & upload to Firefox Add-ons (AMO)
+        if: github.event_name == 'workflow_dispatch' && inputs.sign == 'true' || startsWith(github.ref, 'refs/tags/')
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -e
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::error::Missing AMO_JWT_ISSUER / AMO_JWT_SECRET secrets. Set them in Repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          # web-ext reads these exact names
+          CHANNEL="${{ inputs.channel || 'listed' }}"
+          echo "Signing with channel=$CHANNEL"
+          mkdir -p web-ext-artifacts firefox_temp_build
+          cp -r firefox_build/* firefox_temp_build/
+          npx web-ext sign --channel "$CHANNEL" --source-dir firefox_temp_build --artifacts-dir ./web-ext-artifacts
+          ls -lh web-ext-artifacts/
+
+      - name: Upload signed Firefox XPI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-firefox-${{ github.ref_name }}
+          path: web-ext-artifacts/**
+
+      - name: Create GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            anchor_chrome_v*.zip
+            anchor_firefox_v*.xpi
+            web-ext-artifacts/*.xpi
+          generate_release_notes: true
+          fail_on_unmatched_files: true
